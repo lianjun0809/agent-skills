@@ -7,90 +7,72 @@ platform: ios
 
 ## 前置条件
 
-TRTC Live SDK 所有异步接口均通过 Swift `Result<T, Error>` 回调返回错误。错误对象实现了以下协议：
+AtomicXCore SDK 所有异步接口均通过 Swift `Result<T, ErrorInfo>` 回调返回错误。
+
+**错误类型是 `ErrorInfo` 结构体，不是 Swift `Error` 协议**：
 
 ```swift
-protocol TRTCError: Error {
-    var code: Int { get }       // 错误码（负数：客户端；正数：服务端）
-    var message: String { get } // 错误描述
+struct ErrorInfo {
+    var code: Int       // 错误码（负数：客户端；正数：服务端）
+    var message: String // 错误描述
 }
+
+// 所有异步回调的统一签名
+typealias CompletionClosure = (Result<Void, ErrorInfo>) -> Void
 ```
 
-## 错误回调捕获方式
-
-所有 SDK 回调遵循统一的 `Result<T, Error>` 模式：
+## API 调用（错误码提取方式）
 
 ```swift
-// 登录示例
-LoginStore.shared.login(sdkAppID: appID, userID: userID, userSig: userSig) { result in
-    switch result {
-    case .success(let userInfo):
-        // 处理成功
-        break
-    case .failure(let error):
-        // 统一错误处理入口
-        ErrorHandler.handle(error)
-    }
-}
-
-// 设备操作示例
-DeviceStore.shared.openLocalCamera(isFront: true) { result in
+// ✅ 正确：直接从 ErrorInfo 结构体取字段
+LoginStore.shared.login(sdkAppID: 1400000001,
+                        userID: "user_001",
+                        userSig: userSig) { result in
     switch result {
     case .success:
         break
-    case .failure(let error):
-        ErrorHandler.handle(error)
+    case .failure(let errorInfo):   // errorInfo: ErrorInfo（不是 Error）
+        let code = errorInfo.code
+        let msg  = errorInfo.message
+    }
+}
+
+// ✅ 返回 LiveInfo 的回调（LiveInfoCompletionClosure）
+// typealias LiveInfoCompletionClosure = (Result<LiveInfo, ErrorInfo>) -> Void
+LiveListStore.shared.joinLive(liveID: "room_001") { result in
+    switch result {
+    case .success(let liveInfo):    // liveInfo: LiveInfo
+        print("直播间名称: \(liveInfo.liveName)")
+    case .failure(let errorInfo):
+        print("进房失败, code: \(errorInfo.code)")
     }
 }
 ```
 
-## 错误码提取代码
+## 代码示例
 
 ```swift
 import AtomicXCore
 
-/// 统一错误处理器
+// MARK: - 统一错误处理器
+
 final class ErrorHandler {
 
-    // MARK: - 提取错误码
+    // MARK: - 从 ErrorInfo 提取信息
 
-    /// 从任意 Error 中提取 TRTC 错误码
-    static func extractCode(from error: Error) -> Int? {
-        // 尝试转换为 TRTCError 协议
-        if let trtcError = error as? TRTCError {
-            return trtcError.code
-        }
-        // 通过 userInfo 提取（兼容 NSError 桥接）
-        let nsError = error as NSError
-        if let code = nsError.userInfo["code"] as? Int {
-            return code
-        }
-        return nsError.code != 0 ? nsError.code : nil
+    /// 直接从 ErrorInfo 取 code 和 message
+    static func log(_ errorInfo: ErrorInfo, context: String = #function) {
+        print("[ErrorHandler] [\(context)] code=\(errorInfo.code), msg=\(errorInfo.message)")
     }
 
-    /// 从任意 Error 中提取错误描述
-    static func extractMessage(from error: Error) -> String {
-        if let trtcError = error as? TRTCError {
-            return trtcError.message
-        }
-        return error.localizedDescription
-    }
+    // MARK: - 分类处理（按 errorInfo.code 分支）
 
-    // MARK: - 分类处理
-
-    /// 统一错误分发：根据错误码决定处理策略
-    static func handle(_ error: Error,
+    static func handle(_ errorInfo: ErrorInfo,
                        context: String = #function,
                        retryHandler: (() -> Void)? = nil) {
-        guard let code = extractCode(from: error) else {
-            logUnknownError(error, context: context)
-            return
-        }
+        log(errorInfo, context: context)
 
-        let message = extractMessage(from: error)
-        print("[ErrorHandler] [\(context)] code=\(code), msg=\(message)")
-
-        switch code {
+        switch errorInfo.code {
         // ── 通用错误 ──────────────────────────────────────────
         case -1000:
             showAlert(title: "配置错误", message: "SDKAppID 不合法，请检查控制台配置")
@@ -100,8 +82,9 @@ final class ErrorHandler {
             showAlert(title: "未登录", message: "请先完成登录后再进行操作")
         case -1003:
             guideToSystemPermissionSettings()
+
+        // ── 限频（可重试）────────────────────────────────────
         case -2:
-            // 限频：指数退避重试
             retryWithBackoff(handler: retryHandler)
 
         // ── 设备错误 ──────────────────────────────────────────
@@ -116,11 +99,16 @@ final class ErrorHandler {
         case -1106:
             showAlert(title: "麦克风占用", message: "请结束通话或关闭其他语音应用后重试")
         case -1100, -1104:
-            showAlert(title: "设备错误", message: "设备打开失败（code: \(code)），请重启应用后重试")
+            showAlert(title: "设备错误",
+                      message: "设备打开失败（code: \(errorInfo.code)），请重启应用后重试")
 
         // ── 房间错误 ──────────────────────────────────────────
         case -2101:
             showAlert(title: "操作错误", message: "请先进入房间再执行此操作")
+        case -2105:
+            showAlert(title: "参数错误", message: "直播间 ID 格式非法（须为 ASCII，≤ 48 字节）")
+        case -2107:
+            showAlert(title: "参数错误", message: "直播间名称非法（UTF-8，≤ 30 字节）")
         case -2108:
             showAlert(title: "已在房间内", message: "您已在其他房间中，请先退出后再加入新房间")
 
@@ -129,8 +117,6 @@ final class ErrorHandler {
             showAlert(title: "全员禁言", message: "当前房间已开启全员禁言，请等待房主解除")
         case -2381:
             showAlert(title: "被禁言", message: "您已被禁言，请联系房主申请解除")
-        case -2361, -2371:
-            showAlert(title: "需要申请", message: "请向房主或管理员申请开启麦克风/摄像头权限")
 
         // ── 服务端错误（可重试）──────────────────────────────
         case 100001:
@@ -138,12 +124,11 @@ final class ErrorHandler {
 
         // ── 未知错误 ──────────────────────────────────────────
         default:
-            logUnknownError(error, context: context)
-            showAlert(title: "未知错误", message: "错误码：\(code)\n\(message)")
+            showAlert(title: "未知错误", message: "错误码：\(errorInfo.code)\n\(errorInfo.message)")
         }
     }
 
-    // MARK: - 工具方法
+    // MARK: - UI 工具方法
 
     private static func showAlert(title: String, message: String) {
         DispatchQueue.main.async {
@@ -156,7 +141,7 @@ final class ErrorHandler {
 
     enum PermissionType { case camera, microphone }
 
-    private static func guideToSystemPermissionSettings(permissionType: PermissionType? = nil) {
+    static func guideToSystemPermissionSettings(permissionType: PermissionType? = nil) {
         let message: String
         switch permissionType {
         case .camera:
@@ -194,14 +179,10 @@ final class ErrorHandler {
             handler()
         }
     }
-
-    private static func logUnknownError(_ error: Error, context: String) {
-        // 上报到业务日志系统（替换为实际日志 SDK）
-        print("[ErrorHandler] 未知错误 [\(context)]: \(error)")
-    }
 }
 
 // MARK: - UIApplication 顶层 ViewController 扩展
+
 extension UIApplication {
     var topViewController: UIViewController? {
         var topVC = connectedScenes
@@ -217,22 +198,49 @@ extension UIApplication {
 }
 ```
 
+**调用示例**：
+```swift
+// 登录错误处理
+LoginStore.shared.login(sdkAppID: 1400000001,
+                        userID: "user_001",
+                        userSig: userSig) { result in
+    switch result {
+    case .success:
+        print("登录成功")
+    case .failure(let errorInfo):
+        ErrorHandler.handle(errorInfo, context: "login")
+    }
+}
+
+// 设备错误处理（含重试）
+DeviceStore.shared.openLocalCamera(isFront: true) { result in
+    switch result {
+    case .success:
+        print("摄像头打开成功")
+    case .failure(let errorInfo):
+        ErrorHandler.handle(errorInfo, context: "openLocalCamera") {
+            // 重试逻辑
+            DeviceStore.shared.openLocalCamera(isFront: true, completion: nil)
+        }
+    }
+}
+```
+
 ## iOS 特有：权限错误与系统权限对应
 
-iOS 系统权限与 TRTC 错误码的对应关系：
+iOS 系统权限与 SDK 错误码的对应关系：
 
-| TRTC 错误码 | AVFoundation 权限状态 | 系统设置路径 | 处理方式 |
+| SDK 错误码 | AVFoundation 权限状态 | 系统设置路径 | 处理方式 |
 |------------|----------------------|-------------|---------|
-| `-1101` | `AVAuthorizationStatus.denied` (摄像头) | 设置 > 隐私与安全 > 摄像头 | 弹窗引导跳转 `UIApplication.openSettingsURLString` |
-| `-1105` | `AVAuthorizationStatus.denied` (麦克风) | 设置 > 隐私与安全 > 麦克风 | 弹窗引导跳转 `UIApplication.openSettingsURLString` |
+| `-1101` | `AVAuthorizationStatus.denied`（摄像头） | 设置 > 隐私与安全 > 摄像头 | 弹窗引导跳转 `UIApplication.openSettingsURLString` |
+| `-1105` | `AVAuthorizationStatus.denied`（麦克风） | 设置 > 隐私与安全 > 麦克风 | 弹窗引导跳转 `UIApplication.openSettingsURLString` |
 | `-1003` | 系统级权限被拒 | 设置 > 隐私与安全 | 通用权限引导 |
 
-**权限状态主动检测**（在调用 SDK 前预检）：
+**权限状态主动检测**（在调用 SDK 前预检，避免先触发错误码再处理）：
 
 ```swift
 import AVFoundation
 
-/// 在 openLocalCamera 前检测，避免因权限问题收到错误码后再处理
 func checkAndRequestCameraPermission(completion: @escaping (Bool) -> Void) {
     let status = AVCaptureDevice.authorizationStatus(for: .video)
     switch status {
@@ -256,6 +264,7 @@ func checkAndRequestCameraPermission(completion: @escaping (Bool) -> Void) {
 ```
 
 **注意事项**：
+- `Result<Void, ErrorInfo>` 的失败分支中，`errorInfo` 是 `ErrorInfo` 结构体，**不是** `Swift.Error`，无法调用 `localizedDescription`。
 - `AVCaptureDevice.requestAccess` 只触发**一次**系统弹窗。用户拒绝后，再次调用不会弹窗，需手动引导前往设置。
 - iOS 模拟器不支持摄像头，`AVAuthorizationStatus` 始终返回 `.authorized` 但打开后会收到 `-1103`，请在真机上测试设备功能。
 - 权限状态缓存在 App 沙盒中，卸载重装后会重置。测试时需注意。

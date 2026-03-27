@@ -28,6 +28,9 @@ docs:
 | `openLocalMicrophone(completion:)` | 打开本地麦克风并开始采集音频 |
 | `closeLocalMicrophone()` | 关闭本地麦克风，停止音频采集 |
 | `switchCamera(isFront:)` | 在不关闭摄像头的情况下切换前后摄像头 |
+| `setCaptureVolume(volume:)` | 设置采集音量，range **[0, 100]** |
+| `setOutputVolume(_:)` | 设置播放音量，range **[0, 100]** |
+| `setAudioRoute(_:)` | 切换音频路由（扬声器 / 听筒） |
 
 ## 最佳实践
 

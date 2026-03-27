@@ -13,355 +13,267 @@ pod 'AtomicXCore', '~> 4.0'
 ```
 
 **前置状态**：
-- `LoginStore.shared.isLogin == true`（须完成登录）
+- `LoginStore.shared` 登录成功
 - `DeviceStore.shared.openLocalCamera` 已成功（摄像头就绪）
 - `DeviceStore.shared.openLocalMicrophone` 已成功（麦克风就绪）
-- `LiveInfo` 已配置完毕（liveID + seatTemplate 必填）
+- `LiveInfo` 已配置完毕（通过 `init(seatTemplate:)` 初始化，liveID 必填）
 
-## API 调用
+## API 调用（真实签名）
 
 ```swift
-// 开播
-LiveListStore.shared.createLive(liveInfo: liveInfo) { result in
-    // result: Result<Void, LiveError>
-}
+// 开播：第一参数无标签；completion 返回 LiveInfo
+LiveListStore.shared.createLive(_ liveInfo: LiveInfo,
+                                completion: LiveInfoCompletionClosure?)
+// LiveInfoCompletionClosure = (Result<LiveInfo, ErrorInfo>) -> Void
 
-// 结束直播
-LiveListStore.shared.endLive(liveID: liveID) { result in
-    // result: Result<Void, LiveError>
-}
+// 结束直播：无 liveID 参数
+LiveListStore.shared.endLive(completion: StopLiveCompletionClosure?)
+// StopLiveCompletionClosure = ...  // TODO: 待验证 — 确认实际签名
 
-// 订阅被动结束事件（Combine）
-LiveListStore.liveListEventPublisher
-    .receive(on: DispatchQueue.main)
-    .sink { event in
-        switch event {
-        case .onLiveEnded(let liveID):       // 直播被动结束
-        case .onKickedOutOfLive(let liveID, let reason):  // 被踢出直播间
-        default: break
-        }
-    }
-    .store(in: &cancellables)
+// 订阅直播列表事件（Combine）
+LiveListStore.shared.liveListEventPublisher  // PassthroughSubject<LiveListEvent, Never>
+```
+
+**LiveListEvent 完整签名**
+```swift
+enum LiveListEvent {
+    // 直播被动结束（服务端强制终止/超时）
+    case onLiveEnded(liveID: String, reason: LiveEndedReason, message: String)
+
+    // 被踢出直播间
+    case onKickedOutOfLive(liveID: String, reason: LiveKickedOutReason, message: String)
+}
+```
+
+**关键类型说明**
+```swift
+// LiveInfo 初始化（必须传 seatTemplate）
+var liveInfo = LiveInfo(seatTemplate: .videoDynamicGrid9Seats)
+liveInfo.liveID   = "your-live-id"
+liveInfo.liveName = "直播间名称"
+
+// 通用回调
+typealias CompletionClosure         = (Result<Void, ErrorInfo>) -> Void
+typealias LiveInfoCompletionClosure = (Result<LiveInfo, ErrorInfo>) -> Void
+
+struct ErrorInfo {
+    var code: Int
+    var message: String
+}
 ```
 
 ## 代码示例
 
-### 开播代码
-
 ```swift
-import UIKit
 import AtomicXCore
 import Combine
 
-/// 直播中页面 — 完整生命周期管理
-final class AnchorLiveViewController: UIViewController {
+var cancellables = Set<AnyCancellable>()
+var isLiving = false
 
-    // MARK: - Properties
+// MARK: - 开播
 
-    private let liveID: String
-    private var cancellables = Set<AnyCancellable>()
-    private var isLiving = false
+func startLive(liveID: String, liveName: String) {
+    // ⚠️ 必须用 init(seatTemplate:)，不是 LiveInfo()
+    var liveInfo = LiveInfo(seatTemplate: .videoDynamicGrid9Seats)
+    liveInfo.liveID   = liveID
+    liveInfo.liveName = liveName
 
-    // MARK: - UI
+    // ⚠️ 第一参数无标签（unnamed first param）
+    LiveListStore.shared.createLive(liveInfo) { result in
+        switch result {
+        case .success(let createdLiveInfo):
+            // 成功时回调携带服务端确认的 LiveInfo（含 createTime 等字段）
+            isLiving = true
+            print("[Lifecycle] 开播成功, liveID: \(createdLiveInfo.liveID)")
 
-    private lazy var endButton: UIButton = {
-        let btn = UIButton(type: .system)
-        btn.setTitle("结束直播", for: .normal)
-        btn.backgroundColor = .systemRed
-        btn.setTitleColor(.white, for: .normal)
-        btn.layer.cornerRadius = 20
-        btn.addTarget(self, action: #selector(endLiveTapped), for: .touchUpInside)
-        return btn
-    }()
-
-    private let statusLabel: UILabel = {
-        let label = UILabel()
-        label.text = "正在开播中…"
-        label.textColor = .white
-        label.font = .systemFont(ofSize: 14)
-        return label
-    }()
-
-    // MARK: - Init
-
-    init(liveID: String) {
-        self.liveID = liveID
-        super.init(nibName: nil, bundle: nil)
-    }
-
-    required init?(coder: NSCoder) { fatalError() }
-
-    // MARK: - Lifecycle
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        view.backgroundColor = .black
-        setupLayout()
-        subscribeToLiveEvents()
-        startLive()
-    }
-
-    override func viewWillDisappear(_ animated: Bool) {
-        super.viewWillDisappear(animated)
-        // 防止导航返回时未调用 endLive
-        if isLiving {
-            performEndLive()
+        case .failure(let errorInfo):
+            print("[Lifecycle] 开播失败, code: \(errorInfo.code), msg: \(errorInfo.message)")
+            handleCreateError(errorInfo)
         }
     }
+}
 
-    // MARK: - Layout
+// MARK: - 结束直播
 
-    private func setupLayout() {
-        [statusLabel, endButton].forEach {
-            $0.translatesAutoresizingMaskIntoConstraints = false
-            view.addSubview($0)
+func stopLive() {
+    guard isLiving else { return }
+    isLiving = false
+
+    // Step 1: 关闭设备（先关设备再结束房间）
+    DeviceStore.shared.closeLocalCamera()
+    DeviceStore.shared.closeLocalMicrophone()
+
+    // Step 2: 结束直播（无 liveID 参数，endLive 结束当前房间）
+    LiveListStore.shared.endLive { result in
+        switch result {
+        case .success:
+            print("[Lifecycle] 直播结束成功")
+            cleanupSubscriptions()
+
+        case .failure(let errorInfo):
+            // 即使失败也应清理本地资源
+            print("[Lifecycle] endLive 失败, code: \(errorInfo.code)")
+            cleanupSubscriptions()
         }
-        NSLayoutConstraint.activate([
-            statusLabel.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 16),
-            statusLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-
-            endButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -32),
-            endButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            endButton.widthAnchor.constraint(equalToConstant: 160),
-            endButton.heightAnchor.constraint(equalToConstant: 40)
-        ])
     }
+}
 
-    // MARK: - Start Live
+// MARK: - 订阅被动结束事件（先订阅再开播，防止事件丢失）
 
-    private func startLive() {
-        var liveInfo = LiveInfo()
-        liveInfo.liveID       = liveID
-        liveInfo.liveName     = "我的直播间"
-        liveInfo.seatTemplate = .videoDynamicGrid9Seats
+func subscribeLiveEvents(currentLiveID: String) {
+    LiveListStore.shared.liveListEventPublisher
+        .receive(on: DispatchQueue.main)
+        .sink { event in
+            switch event {
+            // ⚠️ onLiveEnded 有三个关联值：liveID, reason, message
+            case .onLiveEnded(let liveID, let reason, let message)
+                where liveID == currentLiveID:
+                print("[Lifecycle] 直播被动结束, reason: \(reason), msg: \(message)")
+                handlePassiveEnd(reason: message)
 
-        LiveListStore.shared.createLive(liveInfo: liveInfo) { [weak self] result in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    self.isLiving = true
-                    self.statusLabel.text = "🔴 直播中"
-                    print("[AnchorLive] 开播成功, liveID: \(self.liveID)")
+            // ⚠️ onKickedOutOfLive 有三个关联值：liveID, reason, message
+            case .onKickedOutOfLive(let liveID, let reason, let message)
+                where liveID == currentLiveID:
+                print("[Lifecycle] 被踢出直播间, reason: \(reason), msg: \(message)")
+                handleKickedOut(message: message)
 
-                case .failure(let error):
-                    self.handleCreateError(error)
-                }
+            default:
+                break
             }
         }
+        .store(in: &cancellables)
+}
+
+// MARK: - 被动结束处理
+
+func handlePassiveEnd(reason: String) {
+    isLiving = false
+    DeviceStore.shared.closeLocalCamera()
+    DeviceStore.shared.closeLocalMicrophone()
+    cleanupSubscriptions()
+    print("[Lifecycle] 被动结束处理完成：\(reason)")
+}
+
+func handleKickedOut(message: String) {
+    isLiving = false
+    DeviceStore.shared.closeLocalCamera()
+    DeviceStore.shared.closeLocalMicrophone()
+    cleanupSubscriptions()
+    print("[Lifecycle] 被踢出处理完成：\(message)")
+}
+
+// MARK: - 错误处理
+
+func handleCreateError(_ errorInfo: ErrorInfo) {
+    switch errorInfo.code {
+    case -2105: print("直播间 ID 格式非法")
+    case -2107: print("直播间名称非法（超长或含特殊字符）")
+    case -2108: print("您已在其他直播间，请先退出")
+    default:    print("开播失败（code: \(errorInfo.code)）: \(errorInfo.message)")
     }
+}
 
-    // MARK: - Event Subscription
+// MARK: - 清理
 
-    private func subscribeToLiveEvents() {
-        LiveListStore.liveListEventPublisher
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] event in
-                guard let self else { return }
-                switch event {
-                case .onLiveEnded(let endedLiveID) where endedLiveID == self.liveID:
-                    // 直播被服务端强制结束（如违规、服务端超时等）
-                    print("[AnchorLive] 直播被动结束, liveID: \(endedLiveID)")
-                    self.handleLivePassiveEnd(reason: "直播已被系统结束")
-
-                case .onKickedOutOfLive(let kickedLiveID, let reason) where kickedLiveID == self.liveID:
-                    // 主播被管理员踢出
-                    print("[AnchorLive] 被踢出直播间, reason: \(reason)")
-                    self.handleKickedOut(reason: reason)
-
-                default:
-                    break
-                }
-            }
-            .store(in: &cancellables)
-    }
-
-    // MARK: - End Live
-
-    @objc private func endLiveTapped() {
-        let alert = UIAlertController(title: "确认结束直播", message: "观众将无法继续观看，是否确认？",
-                                      preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "结束直播", style: .destructive) { [weak self] _ in
-            self?.performEndLive()
-        })
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        present(alert, animated: true)
-    }
-
-    private func performEndLive() {
-        guard isLiving else { return }
-        isLiving = false
-
-        endButton.isEnabled = false
-        statusLabel.text = "直播结束中…"
-
-        // 步骤 1：结束 PK（如有）
-        // endPK { ... }
-
-        // 步骤 2：断开连线（如有）
-        // disconnectLink { ... }
-
-        // 步骤 3：断开连麦（如有）
-        // stopCoguest { ... }
-
-        // 步骤 4：关闭设备
-        DeviceStore.shared.closeLocalCamera()
-        DeviceStore.shared.closeLocalMicrophone()
-
-        // 步骤 5：结束直播
-        LiveListStore.shared.endLive(liveID: liveID) { [weak self] result in
-            guard let self else { return }
-            DispatchQueue.main.async {
-                switch result {
-                case .success:
-                    print("[AnchorLive] 直播结束成功")
-                    // 步骤 6：endLive 回调成功后才可释放资源
-                    self.cleanupAndDismiss()
-
-                case .failure(let error):
-                    print("[AnchorLive] endLive 失败, code: \(error.code)")
-                    // 即使失败也应清理本地资源
-                    self.cleanupAndDismiss()
-                }
-            }
-        }
-    }
-
-    // MARK: - Passive End Handlers
-
-    private func handleLivePassiveEnd(reason: String) {
-        isLiving = false
-        DeviceStore.shared.closeLocalCamera()
-        DeviceStore.shared.closeLocalMicrophone()
-
-        let alert = UIAlertController(title: "直播已结束", message: reason, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default) { [weak self] _ in
-            self?.cleanupAndDismiss()
-        })
-        present(alert, animated: true)
-    }
-
-    private func handleKickedOut(reason: String) {
-        isLiving = false
-        DeviceStore.shared.closeLocalCamera()
-        DeviceStore.shared.closeLocalMicrophone()
-
-        let message = reason.isEmpty ? "您已被管理员移出直播间" : "被移出原因：\(reason)"
-        let alert = UIAlertController(title: "已被移出", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default) { [weak self] _ in
-            self?.cleanupAndDismiss()
-        })
-        present(alert, animated: true)
-    }
-
-    // MARK: - Cleanup
-
-    private func cleanupAndDismiss() {
-        // 取消所有事件订阅
-        cancellables.removeAll()
-        // 返回上层（此时 LiveCoreView 已安全释放）
-        navigationController?.popToRootViewController(animated: true)
-    }
-
-    // MARK: - Error Handling
-
-    private func handleCreateError(_ error: LiveError) {
-        let message: String
-        switch error.code {
-        case -2105: message = "直播间 ID 格式非法"
-        case -2107: message = "直播间名称非法（超长或含特殊字符）"
-        case -2108: message = "您已在其他直播间，请先退出"
-        default:    message = "开播失败（错误码 \(error.code)）"
-        }
-        let alert = UIAlertController(title: "开播失败", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "确定", style: .default) { [weak self] _ in
-            self?.navigationController?.popViewController(animated: true)
-        })
-        present(alert, animated: true)
-    }
+func cleanupSubscriptions() {
+    cancellables.removeAll()
 }
 ```
 
 ## 调用时序
 
 ```
-AnchorLiveViewController.viewDidLoad()
+设备就绪（openLocalCamera + openLocalMicrophone 成功）
         │
-        ├─── subscribeToLiveEvents()       ← 先订阅事件，防止 createLive 成功前的事件丢失
+        ▼
+subscribeLiveEvents(currentLiveID:)     ← ① 先订阅事件，防止 createLive 前丢失
         │
-        └─── startLive()
+        ▼
+构建 LiveInfo(seatTemplate: .videoDynamicGrid9Seats)
+设置 liveID + liveName（+ 其他选填字段）
+        │
+        ▼
+// 第一参数无标签
+LiveListStore.shared.createLive(liveInfo) { result in ... }
+        │
+        ├─ .failure(errorInfo)
+        │       ├─ code -2105/-2107/-2108 → 展示错误，退出
+        │       └─ 其他 → 展示错误信息
+        │
+        └─ .success(createdLiveInfo)
                 │
                 ▼
-        LiveInfo 构建
-        （liveID + liveName + seatTemplate）
+        isLiving = true
+        UI 更新为「🔴 直播中」
+                │
+        ┌───────────────────────────┐
+        │       直播进行中          │
+        │   onLiveEnded →被动结束   │  liveID + reason + message
+        │   onKickedOutOfLive→踢出 │  liveID + reason + message
+        └───────────────────────────┘
+                │
+        [用户主动结束 / 被动结束]
                 │
                 ▼
-        LiveListStore.createLive(liveInfo:)
-                │
-                ├─ .failure(-2105/-2107/-2108) → 展示错误弹窗，返回上页
-                │
-                └─ .success
-                        │
-                        ▼
-                isLiving = true
-                UI 更新为「🔴 直播中」
-                        │
-                        ▼
-                ┌───────────────────────────┐
-                │       直播进行中          │
-                │   事件监听持续运行中      │
-                │   onLiveEnded → 被动结束  │
-                │   onKickedOutOfLive → 踢出│
-                └───────────────────────────┘
-                        │
-                [用户点击「结束直播」/ 被动结束]
-                        │
-                        ▼
-        步骤1: endPK()（如有）
-        步骤2: disconnectLink()（如有）
-        步骤3: stopCoguest()（如有）
-        步骤4: DeviceStore.closeLocalCamera()
+        步骤1: DeviceStore.closeLocalCamera()
                DeviceStore.closeLocalMicrophone()
-        步骤5: LiveListStore.endLive(liveID:)
+        步骤2: LiveListStore.shared.endLive(completion:)
                 │
                 └─ .success / .failure
                         │
                         ▼
-        步骤6: cancellables.removeAll()    ← 取消事件订阅
-               navigationController?.popToRootViewController()
-               （此时 LiveCoreView 安全释放）
+        步骤3: cancellables.removeAll()     ← 取消事件订阅
+               返回上层页面
 ```
 
 ## 平台特有注意事项
 
-### 1. Combine 订阅生命周期管理
-`liveListEventPublisher` 的 Combine 订阅存储在 `cancellables` 中。务必在 `cleanupAndDismiss` 时调用 `cancellables.removeAll()`，否则：
+### 1. createLive 第一参数无标签
+```swift
+// ✅ 正确
+LiveListStore.shared.createLive(liveInfo) { result in ... }
+
+// ❌ 错误（带标签）
+LiveListStore.shared.createLive(liveInfo: liveInfo) { ... }
+```
+
+### 2. endLive 无 liveID 参数
+`endLive(completion:)` 结束的是 SDK 当前所在的直播间，不需要传 liveID：
+```swift
+// ✅ 正确
+LiveListStore.shared.endLive { result in ... }
+
+// ❌ 错误（没有此参数）
+LiveListStore.shared.endLive(liveID: liveID) { ... }
+```
+
+### 3. LiveListEvent 关联值有三个字段
+`onLiveEnded` 和 `onKickedOutOfLive` 的关联值均为 `(liveID: String, reason: …, message: String)`，不是只有 `liveID`：
+```swift
+// ✅ 正确
+case .onLiveEnded(let liveID, let reason, let message):
+    // 使用 liveID 过滤当前直播间
+
+// ❌ 错误（缺少 reason 和 message）
+case .onLiveEnded(let liveID):
+```
+
+### 4. Combine 订阅生命周期管理
+`liveListEventPublisher` 的 Combine 订阅存储在 `cancellables` 中。务必在退出直播间时调用 `cancellables.removeAll()`，否则：
 - ViewController 被释放后订阅仍存活（内存泄漏）
 - 后续事件可能触发已释放对象的回调（野指针）
 
-### 2. App 进入后台时的处理
-iOS 系统在 App 后台时可能中断网络连接，导致推流断开。建议监听 App 生命周期：
-
-```swift
-NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)
-    .sink { [weak self] _ in
-        // 可在此展示「主播暂时离开」提示给观众
-        print("[AnchorLive] App 进入后台，推流可能中断")
-    }
-    .store(in: &cancellables)
-```
-
-### 3. endLive 失败时的兜底处理
+### 5. endLive 失败时的兜底处理
 网络异常可能导致 `endLive` 回调超时或失败。即使失败也应清理本地资源（关闭设备、取消订阅），并在下次启动时通过服务端状态检查直播间是否仍存在。
 
-### 4. 导航返回的拦截
-使用 `viewWillDisappear` 中的 `isLiving` 标志检测用户通过导航返回键意外退出直播间，确保 `endLive` 被调用：
-
+### 6. 导航返回的拦截
+通过 `viewWillDisappear` + `isMovingFromParent` 检测用户通过导航返回键意外退出：
 ```swift
 override func viewWillDisappear(_ animated: Bool) {
     super.viewWillDisappear(animated)
     if isLiving && isMovingFromParent {
-        performEndLive()
+        stopLive()
     }
 }
 ```
