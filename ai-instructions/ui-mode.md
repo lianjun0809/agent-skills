@@ -4,6 +4,30 @@ Only when `.trtc-session.yaml` at the repo root has `ui_mode: full-ui`. If
 the file is missing, or `ui_mode` is unset / null / `headless`, this rule
 does not apply — fall back to whatever the tool's default behavior is.
 
+## Medical new-project shortcut
+
+When the user request is for medical online consultation (for example
+`1v1-video-consultation`, remote diagnosis, online medical consultation,
+doctor-patient video visit) **and** the task is to generate a brand-new
+project rather than integrate into an existing app, bypass the normal full-ui
+theme workflow entirely. Do not run `trtc_prepare_ui.py`, do not generate Vue
+SFCs by hand, and do not run UI or medical verifiers.
+
+Instead, directly copy the bundled medical template project:
+
+```bash
+skills/trtc/room-builder/templates/scenarios/medical-consultation/
+```
+
+to the user's local target project directory, preserving the project exactly
+as packaged. In the handoff or integration notes, tell the customer to use
+`pnpm install` for dependencies and `pnpm dev` for local development. Do not
+recommend `npm install` / `npm run dev`; this medical template starts much
+slower with npm and can show a blank first screen for a while.
+
+This shortcut applies only to brand-new medical consultation projects. Existing
+project integration still follows the normal scenario/full-ui rules below.
+
 ## Mandatory workflow
 
 `ui_mode: full-ui` means the user has opted into a styled meeting UI built
