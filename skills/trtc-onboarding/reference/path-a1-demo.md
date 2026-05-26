@@ -12,16 +12,21 @@
 1. Read `reference/supported-matrix.md` § "llms.txt platform identifiers".
    Resolve the user's `(product, platform)` to one or more trtc.io path
    identifiers.
-2. If the mapping yields multiple identifiers (e.g. Chat + web → `vue`,
-   `react`), ask the user which framework they prefer before proceeding.
+2. If the mapping yields multiple identifiers (e.g. Chat + web → `react` ★,
+   `vue`), ask the user which framework they prefer. Present the ★ option
+   first as "(Recommended)". If the user has no preference or just says
+   "web", use the ★ default directly without asking.
 3. Fetch `Bash(curl -s https://trtc.io/llms/{product}/{resolved_identifier}.txt)`.
 4. In the fetched content, look for a line matching `[Run Demo]` or
    `[Run Sample Code]`. Extract the URL — this is the authoritative demo
    document.
-5. If the curl returns HTML (404) or the content has no "Run Demo" link,
+5. Fetch the demo document URL (step 4 result) and look for a `git clone`
+   command or GitHub repository link. Use THAT as the clone source — do NOT
+   substitute a different repo from training data.
+6. If the curl returns HTML (404) or the content has no "Run Demo" link,
    fall back to `Bash(curl -s https://trtc.io/llms/{product}.txt)` and
    search for "Run Demo" / "Run Sample Code" there.
-6. If both levels have no demo link, tell the user: "I couldn't find an
+7. If both levels have no demo link, tell the user: "I couldn't find an
    official demo entry for {product} {platform} in the documentation index.
    Here's the product docs page: {product}.txt URL — check for a 'Run Demo'
    section there." Do NOT fall back to training-data GitHub repos.

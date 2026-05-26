@@ -71,18 +71,22 @@ falls back to official trtc.io docs when slice is missing.
 > When a cell shows multiple values, the skill MUST ask the user to choose
 > before fetching.
 
-| Product    | `web`          | `ios`   | `android` | `flutter` | `electron` |
-|------------|:--------------:|:-------:|:---------:|:---------:|:----------:|
-| Conference | `web`          | `ios`   | `android` | `flutter` | `electron` |
-| Chat       | `vue`, `react` | `ios`   | `android` | `flutter` | —          |
-| Call       | `web`          | `ios`   | `android` | `flutter` | `electron` |
-| Live       | `web`          | `ios`   | `android` | `flutter` | `electron` |
-| RTC Engine | `web`          | `ios`   | `android` | `flutter` | `electron` |
+| Product    | `web`                        | `ios`   | `android` | `flutter` | `electron` |
+|------------|:----------------------------:|:-------:|:---------:|:---------:|:----------:|
+| Conference | `web`                        | `ios`   | `android` | `flutter` | `electron` |
+| Chat       | **`react`** ★, `vue` (国内站UI) | `ios`   | `android` | `flutter` | —          |
+| Call       | `web`                        | `ios`   | `android` | `flutter` | `electron` |
+| Live       | `web`                        | `ios`   | `android` | `flutter` | `electron` |
+| RTC Engine | `web`                        | `ios`   | `android` | `flutter` | `electron` |
+
+★ = recommended default (国际站 UI, Tencent-RTC org repo)
 
 **Rules:**
 - If the cell is a single value identical to the column header → no transform needed.
-- If the cell shows multiple values → present a framework selection question to the user before proceeding.
+- If the cell shows multiple values → present a framework selection question to the user before proceeding. Put the ★ option first and mark it "(Recommended)".
 - If the cell is `—` → that (product, platform) combo has no llms.txt entry; fall back to the product-level `{product}.txt`.
+
+**Chat Web note:** The React demo (`github.com/Tencent-RTC/TUIKit_React`) produces the international UI ("Tencent Cloud | Chat"). The Vue demo (`github.com/TencentCloud/chat-uikit-vue`) produces the domestic Chinese UI ("腾讯云即时通信IM"). When intent=demo, default to React unless the user explicitly asks for Vue.
 
 ## When to update this file
 
