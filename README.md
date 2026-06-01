@@ -1,5 +1,7 @@
 # TRTC AI Integration
 
+**English** | [简体中文](README.zh.md)
+
 An agent skill provided by [TRTC](https://trtc.io) (Tencent Real-Time Communication) to help developers integrate real-time audio/video, live streaming, and instant messaging into their apps — from first setup to production-ready code.
 
 Instead of reading through long documentation, you describe what you want to build in plain language. The skill routes your request to the right knowledge, asks a few clarifying questions, and walks you through the integration step by step.
@@ -111,6 +113,8 @@ codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECR
 
 ---
 
+## What it does
+
 The skill activates automatically when you mention TRTC or describe a real-time communication use case. No slash commands needed — just ask in plain language.
 
 | | What it does | Example prompts |
@@ -133,7 +137,6 @@ The skill saves your progress in the project. If you close the tool and come bac
 | **Call** | Audio/video calling — 1-on-1 and group calls | Coming soon |
 | **RTC Engine** | Low-level real-time audio/video engine — room management, publishing, subscribing | Coming soon |
 
-> The skill also recognizes business scenarios that imply real-time communication — "telemedicine app", "online classroom", "video interview platform" — and maps them to the right TRTC product automatically.
 
 ---
 
