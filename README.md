@@ -27,7 +27,7 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 **Cursor**
 
-Clone the repo and symlink it into Cursor's local plugin directory:
+Clone the repo into Cursor's local plugin directory:
 
 ```bash
 git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
