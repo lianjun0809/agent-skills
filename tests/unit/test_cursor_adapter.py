@@ -294,5 +294,89 @@ class TestExitCodeMapping(CursorAdapterTestBase):
         self.assertIn('"deny"', result.stdout)
 
 
+class TestStopEventFollowup(CursorAdapterTestBase):
+    """The `stop` event has different output semantics than other events:
+    Cursor only honors {"followup_message": "..."} on stdout (which auto-
+    resubmits as the next user turn), not the deny envelope. Adapter must
+    detect hook_event_name=='stop' from the stdin payload and route inner-
+    script failures into _emit_cursor_followup() instead of _emit_cursor_deny().
+    """
+
+    def test_stop_event_with_inner_fail_emits_followup_message_and_exit_0(self):
+        # Plant the stop guardrail to fail with a clear error.
+        self.plant_stub(
+            DISPATCH["stop-apply-evidence"],
+            exit_code=2,
+            stderr_text="Apply evidence missing for slice X — re-run apply.",
+        )
+        result = self.run_adapter(
+            "stop-apply-evidence",
+            stdin=json.dumps({
+                "hook_event_name": "stop",
+                "status": "completed",
+                "loop_count": 0,
+            }),
+        )
+        # Critical: exit 0 (not 2) so Cursor processes the followup payload
+        # and auto-resubmits, instead of just halting.
+        self.assertEqual(result.returncode, 0, msg=f"stderr={result.stderr!r}")
+
+        envelope = json.loads(result.stdout)
+        # On stop, only `followup_message` is honored. Make sure deny-envelope
+        # fields are NOT emitted (they'd confuse anyone reading the output).
+        self.assertIn("followup_message", envelope)
+        self.assertNotIn("permission", envelope)
+        self.assertNotIn("user_message", envelope)
+        self.assertNotIn("agent_message", envelope)
+        self.assertIn("Apply evidence missing", envelope["followup_message"])
+
+    def test_stop_event_with_inner_success_emits_no_output(self):
+        self.plant_stub(DISPATCH["trtc-verify-ui"], exit_code=0)
+        result = self.run_adapter(
+            "trtc-verify-ui",
+            stdin=json.dumps({"hook_event_name": "stop", "status": "completed"}),
+        )
+        self.assertEqual(result.returncode, 0)
+        # Adapter must stay quiet on success — Cursor would otherwise try
+        # to parse stray output and might log a warning.
+        self.assertEqual(result.stdout, "")
+
+    def test_stop_event_followup_message_truncated_when_too_long(self):
+        long_msg = "x" * 6000
+        self.plant_stub(
+            DISPATCH["verify-apply-project"],
+            exit_code=1,
+            stderr_text=long_msg,
+        )
+        result = self.run_adapter(
+            "verify-apply-project",
+            stdin=json.dumps({"hook_event_name": "stop", "status": "completed"}),
+        )
+        self.assertEqual(result.returncode, 0)
+        envelope = json.loads(result.stdout)
+        # Cap is 4000 + a "(truncated)" marker; the marker is appended on a
+        # newline so the agent realizes content was cut.
+        self.assertLessEqual(len(envelope["followup_message"]), 4100)
+        self.assertIn("truncated", envelope["followup_message"])
+
+    def test_stop_dispatch_without_stop_event_in_stdin_still_uses_deny(self):
+        # Belt-and-suspenders: if Cursor someday wires one of these dispatches
+        # to a non-stop event (e.g., for backwards compat), don't accidentally
+        # emit followup_message on a non-stop event. Routing is by
+        # hook_event_name in stdin, not by dispatch key.
+        self.plant_stub(
+            DISPATCH["stop-apply-evidence"],
+            exit_code=2,
+            stderr_text="boom",
+        )
+        result = self.run_adapter(
+            "stop-apply-evidence",
+            stdin=json.dumps({"hook_event_name": "afterAgentResponse"}),
+        )
+        self.assertEqual(result.returncode, 2)
+        envelope = json.loads(result.stdout)
+        self.assertEqual(envelope["permission"], "deny")
+
+
 if __name__ == "__main__":
     unittest.main()

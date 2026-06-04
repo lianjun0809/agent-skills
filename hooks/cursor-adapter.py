@@ -26,24 +26,28 @@ Cursor event mapping (see hooks-cursor.json):
   beforeReadFile      -> gate-slice-read
   preToolUse          -> gate-slice-write       (filtered to Write/Edit inside)
   afterFileEdit       -> verify-ui-post-write, verify-slice-must
-  afterAgentResponse  -> stop-apply-evidence, trtc-verify-ui, verify-apply-project
+  stop                -> stop-apply-evidence, trtc-verify-ui, verify-apply-project
                          (Claude Code's `Stop` event fires per agent loop
-                          iteration end — the same semantic as Cursor's
-                          `afterAgentResponse`. Cursor's documented `stop`
-                          event was verified to never fire as of 2026-06,
-                          so we use afterAgentResponse instead.
+                          iteration end. Cursor's `stop` event has the same
+                          semantic ("Called when the agent loop ends") and
+                          uniquely supports {"followup_message": "..."} on
+                          stdout to auto-resubmit a corrective user turn —
+                          which is exactly what these end-of-task guardrails
+                          need so the agent can self-correct. Auto-resubmit
+                          is capped at 5 iterations by Cursor's loop_limit.
 
-                          IMPORTANT: Cursor treats afterAgentResponse as a
-                          pure observer event. Our deny envelope is
-                          received and logged in Cursor's Hooks Output
-                          panel ("Hook 1 blocked action") but does NOT
-                          surface to the user (no chat warning) or to the
-                          AI (no self-correction). Tested with
-                          user_message and followup_message fields — both
-                          ignored. This is a Cursor platform limitation,
-                          not an adapter issue. Until Cursor implements
-                          enforcement on afterAgentResponse, the 3
-                          end-of-task guardrails act as audit logs only.)
+                          Historical note: a previous revision of this
+                          adapter mapped these to `afterAgentResponse`
+                          because the original author observed `stop` not
+                          firing. Empirically (Cursor 3.3.8) `stop` does
+                          fire reliably; the original "stop never fires"
+                          observation was caused by hooks not being loaded
+                          at all, not by the `stop` event itself. See
+                          install instructions in the README for the
+                          documented user-level `~/.cursor/hooks.json`
+                          install path — plugin-level hooks declared in
+                          .cursor-plugin/plugin.json are NOT loaded by
+                          current Cursor versions.)
 
 To enable verbose tracing during development, set the env var
 TRTC_HOOK_DEBUG_LOG=/path/to/file.log; see _dbg() below. The default is
@@ -72,6 +76,27 @@ def _dbg(msg: str) -> None:
         import datetime as _dt
         with open(log_path, "a") as f:
             f.write(f"[{_dt.datetime.now().isoformat(timespec='milliseconds')}] {msg}\n")
+    except Exception:
+        pass
+
+
+# Always-on probe log: writes one line per adapter invocation to
+# /tmp/trtc-hook-probe.log so we can confirm which Cursor hook events
+# actually fire end-to-end. Off by default to avoid unbounded log files
+# in production installs; enable by setting env TRTC_HOOK_PROBE=1.
+def _probe_log(key, payload) -> None:
+    if os.environ.get("TRTC_HOOK_PROBE") != "1":
+        return
+    try:
+        import datetime as _dt
+        ev = (payload or {}).get("hook_event_name", "?")
+        with open("/tmp/trtc-hook-probe.log", "a") as f:
+            f.write(
+                f"[{_dt.datetime.now().isoformat(timespec='milliseconds')}] "
+                f"event={ev!r} key={key!r} "
+                f"pid={os.getpid()} "
+                f"cwd={os.environ.get('CURSOR_PROJECT_DIR') or os.getcwd()!r}\n"
+            )
     except Exception:
         pass
 
@@ -150,22 +175,18 @@ def _translate_payload(key: str, cursor: dict) -> dict:
 
 
 def _emit_cursor_deny(message: str) -> None:
-    """Cursor deny protocol: JSON on stdout + exit 2.
+    """Cursor deny protocol for events that honor blocking (preToolUse,
+    beforeReadFile, afterFileEdit): JSON on stdout + exit 2.
 
     Fields populated:
       - permission: "deny" — tells Cursor this action should be blocked.
-      - user_message: surfaced in Cursor's UI when the platform supports it
-        on the current event. Verified to be ignored on afterAgentResponse
-        (Cursor only logs the block in the Output panel there); honored on
-        preToolUse / beforeReadFile.
+      - user_message: surfaced in Cursor's UI on events that support it.
       - agent_message: shown to the agent so it can self-correct on hooks
         that run before the agent's loop ends (preToolUse, beforeReadFile).
 
-    Note: `followup_message` was tested and is NOT honored on
-    afterAgentResponse (Cursor 3.4.20). Per Cursor docs it's only meaningful
-    on the `stop` event, which itself does not fire in current Cursor
-    versions — so there's no reliable channel to make Cursor auto-submit a
-    correction message back to the agent after it has already responded.
+    NOTE: do not call this for the `stop` event. Cursor docs confirm only
+    `followup_message` is honored on stop; use _emit_cursor_followup()
+    instead so the agent gets re-prompted to fix the issue.
     """
     _dbg(f"  EXIT=2 (deny) message={message[:160]!r}")
     msg = message or "Blocked by TRTC guardrail."
@@ -177,6 +198,32 @@ def _emit_cursor_deny(message: str) -> None:
     sys.stdout.write(json.dumps(payload))
     sys.stdout.flush()
     sys.exit(2)
+
+
+def _emit_cursor_followup(message: str) -> None:
+    """Cursor stop-event protocol: emit {"followup_message": ...} on stdout
+    and exit 0. Cursor will automatically submit the message as the next
+    user turn, giving the agent a chance to self-correct.
+
+    Per Cursor docs, the stop event only honors `followup_message`; other
+    output fields (permission, user_message, agent_message) are accepted by
+    the schema but not enforced by callers. Auto-resubmission is capped by
+    `loop_limit` (default 5) so a guardrail that keeps failing won't loop
+    forever.
+
+    Exit 0 (not 2): we want Cursor to resubmit, not block. Exit 2 on stop
+    just halts with no chance for the agent to fix the problem.
+    """
+    msg = (message or "TRTC guardrail failed; please review and fix.").strip()
+    # Cursor caps message length on some events; keep this generous but bounded
+    # so we don't ship a 50KB stderr trace as the next user message.
+    if len(msg) > 4000:
+        msg = msg[:4000] + "\n…(truncated)"
+    _dbg(f"  EXIT=0 (followup) message={msg[:160]!r}")
+    payload = {"followup_message": msg}
+    sys.stdout.write(json.dumps(payload))
+    sys.stdout.flush()
+    sys.exit(0)
 
 
 def main(argv: list[str]) -> None:
@@ -191,6 +238,7 @@ def main(argv: list[str]) -> None:
     # Read stdin first so debug logs see Cursor's hook_event_name even when
     # the dispatch key is unknown or the script is missing.
     cursor_payload = _read_cursor_payload()
+    _probe_log(key, cursor_payload)
     _dbg(
         f"  hook_event_name={cursor_payload.get('hook_event_name', '?')!r} "
         f"keys={sorted(cursor_payload.keys()) if cursor_payload else []}"
@@ -248,10 +296,15 @@ def main(argv: list[str]) -> None:
     if rc == 0:
         sys.exit(0)
     if rc in (1, 2):
-        # Translate fail/block into Cursor's deny envelope. Use stderr
-        # content as the agent-facing message so the existing scripts'
-        # human-readable explanations reach the user.
+        # Translate fail/block into Cursor's response. Use stderr content as
+        # the agent-facing message so the existing scripts' human-readable
+        # explanations reach the user.
         msg = (proc.stderr or proc.stdout or "").strip()
+        # On the `stop` event Cursor honors only `followup_message` (which
+        # auto-resubmits a corrective user turn). On preToolUse /
+        # beforeReadFile / afterFileEdit, the deny envelope is enforced.
+        if cursor_payload.get("hook_event_name") == "stop":
+            _emit_cursor_followup(msg)
         _emit_cursor_deny(msg)
 
     # Unknown exit code — fail open to mimic Claude Code's permissive default.

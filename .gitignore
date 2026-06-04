@@ -36,3 +36,6 @@ build/
 .trtc-session.yaml
 .trtc-apply-evidence/
 .claude/settings.local.json
+
+# Internal architecture / design notes — never push upstream
+internal-docs/

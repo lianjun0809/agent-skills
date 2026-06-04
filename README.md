@@ -33,7 +33,15 @@ Clone the repo into Cursor's local plugin directory:
 git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
 ```
 
-Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
+Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor). Open Cursor Settings → Hooks to verify all five events (`sessionStart`, `beforeReadFile`, `preToolUse`, `afterFileEdit`, `stop`) are registered.
+
+> **Older Cursor versions (< 3.7.x)** don't auto-load plugin-bundled hooks. If Settings → Hooks is empty after Reload Window, also run the following, then reload again:
+>
+> ```bash
+> ln -sf ~/.cursor/plugins/local/trtc-agent-skills/hooks/hooks-cursor.json ~/.cursor/hooks.json
+> ```
+>
+> If you already have a `~/.cursor/hooks.json` from another tool, copy our entries in manually instead of symlinking.
 
 **Codex CLI**
 
