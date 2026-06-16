@@ -42,10 +42,9 @@ Cursor event mapping (see hooks-cursor.json):
                           firing. Empirically (Cursor 3.3.8) `stop` does
                           fire reliably; the original "stop never fires"
                           observation was caused by hooks not being loaded
-                          at all, not by the `stop` event itself. See
-                          install instructions in the README for the
-                          documented user-level `~/.cursor/hooks.json`
-                          install path — plugin-level hooks declared in
+                          at all, not by the `stop` event itself. npx
+                          installs to project-level `.cursor/hooks.json`;
+                          plugin-level hooks declared in
                           .cursor-plugin/plugin.json are NOT loaded by
                           current Cursor versions.)
 
