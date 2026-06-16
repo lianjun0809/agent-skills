@@ -48,6 +48,7 @@ const PKG_JSON    = require(path.join(PKG_ROOT, "package.json"));
 const PKG_VERSION = PKG_JSON.version || "0.0.0";
 const SKILLS_SRC  = path.join(PKG_ROOT, "skills");
 const KB_SRC      = path.join(PKG_ROOT, "knowledge-base");
+const HOOKS_SRC   = path.join(PKG_ROOT, "hooks");
 
 // The 6 skills that make up the suite. Order is cosmetic; `trtc` is the entry.
 const SKILL_NAMES = [
@@ -65,8 +66,11 @@ const IDE_TARGETS = {
   claude:    { skillsRoot: ".claude/skills",    kind: "dir" },
   cursor:    { skillsRoot: ".cursor/skills",    kind: "dir" },
   codebuddy: { skillsRoot: ".codebuddy/skills", kind: "dir" },
-  // Codex reads project-root .agents/skills/. Same dir-per-skill layout works.
-  codex:     { skillsRoot: ".agents/skills",    kind: "dir" },
+  // Codex looks for hooks at <repo>/.codex/hooks.json (per
+  // https://developers.openai.com/codex/hooks). We co-locate skills under
+  // .codex/ as well so the rewritten hook commands (which use absolute paths)
+  // point at the same root the hook config sits next to.
+  codex:     { skillsRoot: ".codex/skills",     kind: "dir" },
 };
 
 // MCP config locations per IDE.
@@ -83,6 +87,72 @@ const MCP_TARGETS = {
 
 const MCP_SERVER_NAME  = "tencent-rtc-skill-tool";
 const MCP_SERVER_ENTRY = "@tencent-rtc/skill-tool@latest";
+
+// Hooks distribution targets per IDE.
+//   claude / codebuddy / codex: hooks/ files copied to <root>/.{ide}/hooks/, and
+//     hooks/hooks.json is rewritten + merged into <root>/.{ide}/settings.json.
+//     The original hooks.json uses ${CLAUDE_PLUGIN_ROOT} / ${CODEBUDDY_PLUGIN_ROOT}
+//     placeholders that get expanded by the IDE in plugin mode; in npx mode we
+//     materialize them to absolute paths under the IDE's settings dir.
+//   cursor: hooks-cursor.json is rewritten + merged into ~/.cursor/hooks.json
+//     (USER-LEVEL — Cursor doesn't load project-level hooks). The
+//     cursor-adapter.py is copied to <root>/.cursor/hooks/ and its hardcoded
+//     $HOME/.cursor/plugins/local/... reference is rewritten to the actual path.
+const HOOKS_TARGETS = {
+  claude: {
+    hooksDir:        ".claude/hooks",
+    settingsFile:    ".claude/settings.json",
+    sourceConfig:    "hooks.json",
+    rootPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
+    rootRewrite:     ".claude",
+    fallbackPlaceholder: "${CODEBUDDY_PLUGIN_ROOT}",
+  },
+  codebuddy: {
+    hooksDir:        ".codebuddy/hooks",
+    settingsFile:    ".codebuddy/settings.json",
+    sourceConfig:    "hooks.json",
+    rootPlaceholder: "${CODEBUDDY_PLUGIN_ROOT}",
+    rootRewrite:     ".codebuddy",
+    fallbackPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
+  },
+  codex: {
+    hooksDir:        ".codex/hooks",
+    // Codex loads hooks from <repo>/.codex/hooks.json (or ~/.codex/hooks.json)
+    // — NOT from .agents/settings.json. See https://developers.openai.com/codex/hooks
+    settingsFile:    ".codex/hooks.json",
+    sourceConfig:    "hooks.json",
+    rootPlaceholder: "${CLAUDE_PLUGIN_ROOT}",
+    rootRewrite:     ".codex",
+    fallbackPlaceholder: "${CODEBUDDY_PLUGIN_ROOT}",
+  },
+  cursor: {
+    hooksDir:        ".cursor/hooks",
+    // ⚠ user-level — Cursor only loads ~/.cursor/hooks.json, not project-level.
+    settingsFile:    path.join(os.homedir(), ".cursor", "hooks.json"),
+    sourceConfig:    "hooks-cursor.json",
+    // The hardcoded path string we need to rewrite in hooks-cursor.json.
+    cursorAdapterPlaceholder: "$HOME/.cursor/plugins/local/trtc-agent-skills/hooks/cursor-adapter.py",
+  },
+};
+
+// AI instruction files distribution per IDE.
+//   - root-md  : project-root markdown files (CLAUDE.md / AGENTS.md / CODEBUDDY.md).
+//                If the file already exists, our content is wrapped in HTML
+//                markers and injected/replaced inside the user's existing file.
+//   - cursor-rule : a Cursor MDC rule with `alwaysApply: true` frontmatter.
+//                Filename collision is virtually nil (users don't write a
+//                ui-mode.mdc themselves), so we just copy/overwrite.
+const AI_INSTRUCTION_TARGETS = {
+  claude:    { type: "root-md",     filename: "CLAUDE.md" },
+  codex:     { type: "root-md",     filename: "AGENTS.md" },
+  codebuddy: { type: "root-md",     filename: "CODEBUDDY.md" },
+  cursor:    { type: "cursor-rule", filename: ".cursor/rules/ui-mode.mdc" },
+};
+
+// Markers used to bracket our content inside user-owned root markdown files.
+// Stable across versions so re-installs replace the prior block in place.
+const MD_MARKER_BEGIN = "<!-- TRTC-AGENT-SKILLS:BEGIN -->";
+const MD_MARKER_END   = "<!-- TRTC-AGENT-SKILLS:END -->";
 
 // Knowledge-base lives next to the skills root (sibling), because skills
 // reference it via ${CLAUDE_PLUGIN_ROOT}/knowledge-base — we mirror that by
@@ -151,6 +221,39 @@ function findProjectRoot(startCwd) {
   return start;
 }
 
+// ── IDE auto-detection ────────────────────────────────────────────────────────
+// When the user runs `npx ... add` without --ide, we auto-detect which IDEs
+// they actually have installed by checking for their user-level config dirs.
+// This way we don't pollute ~/.cursor/ for a user who only runs Claude Code.
+//
+// Detection markers per IDE — present means "this IDE is installed":
+//   claude    : ~/.claude/      (created by Claude Code on first launch)
+//   cursor    : ~/.cursor/      (created by Cursor on first launch)
+//   codebuddy : ~/.codebuddy/   (created by CodeBuddy on first launch)
+//   codex     : ~/.codex/       (created by Codex CLI on first launch)
+//
+// If nothing matches, fall back to claude (the most common starting point).
+// Adding a new IDE later means: one new entry here + entries in the existing
+// IDE_TARGETS / HOOKS_TARGETS / AI_INSTRUCTION_TARGETS / MCP_TARGETS maps.
+const IDE_DETECTION_MARKERS = {
+  claude:    [".claude"],
+  cursor:    [".cursor"],
+  codebuddy: [".codebuddy"],
+  codex:     [".codex"],
+};
+
+function detectInstalledIDEs() {
+  const home = os.homedir();
+  const detected = [];
+  for (const ide of Object.keys(IDE_TARGETS)) {
+    const markers = IDE_DETECTION_MARKERS[ide] || [];
+    if (markers.some(m => fs.existsSync(path.join(home, m)))) {
+      detected.push(ide);
+    }
+  }
+  return detected.length > 0 ? detected : ["claude"];
+}
+
 // ── argv parsing ──────────────────────────────────────────────────────────────
 function getFlag(args, name) {
   const i = args.indexOf(name);
@@ -163,16 +266,23 @@ function printHelp() {
   ${c.bold("@tencent-rtc/trtc-agent-skills")} — Install TRTC AI Integration skills + MCP
 
   ${c.bold("Usage:")}
-    ${c.cyan("npx @tencent-rtc/trtc-agent-skills add")}                  Install (default IDE: claude)
-    ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --ide <name>")}     One of: claude / cursor / codebuddy / codex / all
+    ${c.cyan("npx @tencent-rtc/trtc-agent-skills add")}                  Auto-detect installed IDEs and install for each
+    ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --ide <name>")}     Install only for that IDE: claude / cursor / codebuddy / codex
+    ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --ide all")}        Install for every supported IDE
     ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --clean")}          Wipe existing trtc* skill dirs first
     ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --no-report")}      Skip anonymous install reporting
     ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --list")}           List skills shipped in this package
     ${c.cyan("npx @tencent-rtc/trtc-agent-skills add --help")}           Show this help
 
+  ${c.bold("Default behavior (no --ide):")}
+    ${c.gray("Detects which IDEs are installed by checking ~/.{claude,cursor,codebuddy,codex}/")}
+    ${c.gray("and installs for each one found. Falls back to claude if none detected.")}
+
   ${c.bold("Installs:")}
-    ${c.dim("Skills :")} ${c.gray("<projectRoot>/.claude/skills/  (or .cursor/, .codebuddy/, .agents/)")}
+    ${c.dim("Skills :")} ${c.gray("<projectRoot>/.{ide}/skills/")}
     ${c.dim("KB     :")} ${c.gray("alongside the skills root as knowledge-base/")}
+    ${c.dim("Hooks  :")} ${c.gray("<projectRoot>/.{ide}/hooks/  +  settings file with hook events wired")}
+    ${c.dim("Rules  :")} ${c.gray("CLAUDE.md / AGENTS.md / CODEBUDDY.md (marker-merged)")}
     ${c.dim("MCP    :")} ${c.gray("tencent-rtc-skill-tool → IDE mcp config (npx @tencent-rtc/skill-tool@latest)")}
 
   ${c.dim("Skills are copied as sibling dirs so relative routing (../trtc-onboarding) keeps working.")}
@@ -201,7 +311,76 @@ function cleanSkills(skillsRootAbs) {
   // also wipe a co-located knowledge-base copy if present
   const kb = path.join(path.dirname(skillsRootAbs), "knowledge-base");
   if (fs.existsSync(kb)) { rmrf(kb); }
+  // also wipe a co-located hooks/ copy if present (npx-mode hook scripts)
+  const hooks = path.join(path.dirname(skillsRootAbs), "hooks");
+  if (fs.existsSync(hooks)) { rmrf(hooks); }
   return wiped;
+}
+
+// Strip our markered block from a root markdown file. If the file becomes
+// empty after removal, delete it; otherwise leave the user's own content.
+function cleanAiInstructions(ideList, resolvedRoot) {
+  for (const ide of ideList) {
+    const target = AI_INSTRUCTION_TARGETS[ide];
+    if (!target) continue;
+    const destAbs = path.join(resolvedRoot, target.filename);
+    if (!fs.existsSync(destAbs)) continue;
+
+    if (target.type === "cursor-rule") {
+      // .cursor/rules/ui-mode.mdc was installed verbatim by us; safe to remove.
+      rmrf(destAbs);
+      continue;
+    }
+    if (target.type === "root-md") {
+      let content = fs.readFileSync(destAbs, "utf8");
+      const re = new RegExp(`\\n*${escapeRegex(MD_MARKER_BEGIN)}[\\s\\S]*?${escapeRegex(MD_MARKER_END)}\\n?`, "g");
+      const stripped = content.replace(re, "").trimEnd();
+      if (!stripped) {
+        // The file existed only because we created it. Remove entirely.
+        rmrf(destAbs);
+      } else if (stripped !== content.trimEnd()) {
+        fs.writeFileSync(destAbs, stripped + "\n", "utf8");
+      }
+    }
+  }
+}
+
+// Strip our hook entries from each IDE's settings.json. We tag entries with
+// __trtc_agent_skills__ so we can filter precisely without disturbing the
+// user's own hook entries (relevant for cursor's user-level hooks.json).
+function cleanHooksSettings(ideList, resolvedRoot) {
+  for (const ide of ideList) {
+    const target = HOOKS_TARGETS[ide];
+    if (!target) continue;
+
+    const settingsPath = path.isAbsolute(target.settingsFile)
+      ? target.settingsFile
+      : path.join(resolvedRoot, target.settingsFile);
+    if (!fs.existsSync(settingsPath)) continue;
+
+    let settings;
+    try { settings = JSON.parse(fs.readFileSync(settingsPath, "utf8")); }
+    catch { continue; }
+    if (!settings || typeof settings !== "object") continue;
+
+    if (settings.__trtc_agent_skills__) delete settings.__trtc_agent_skills__;
+
+    if (settings.hooks && typeof settings.hooks === "object") {
+      for (const event of Object.keys(settings.hooks)) {
+        const val = settings.hooks[event];
+        if (Array.isArray(val)) {
+          settings.hooks[event] = val.filter(e => !(e && typeof e === "object" && e.__trtc_agent_skills__));
+          if (settings.hooks[event].length === 0) delete settings.hooks[event];
+        } else {
+          // Non-array (claude/codebuddy style) — we own the whole event under our install.
+          delete settings.hooks[event];
+        }
+      }
+      if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+    }
+
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n", "utf8");
+  }
 }
 
 function installSkills(skillsRootAbs) {
@@ -223,6 +402,207 @@ function copyKnowledgeBase(skillsRootAbs) {
   rmrf(dest);
   copyRecursive(KB_SRC, dest);
   return dest;
+}
+
+// ── hooks installation ────────────────────────────────────────────────────────
+// In plugin mode the IDE expands ${CLAUDE_PLUGIN_ROOT} / ${CODEBUDDY_PLUGIN_ROOT}
+// to the plugin install root. In npx mode there's no plugin root, so we
+// materialize those placeholders to absolute paths pointing at the IDE's
+// settings dir (where we put .{ide}/skills/, .{ide}/hooks/, etc).
+function rewriteHooksContent(content, target, ideAbsRoot) {
+  let out = content;
+  if (target.rootPlaceholder) {
+    // Replace BOTH ${CLAUDE_PLUGIN_ROOT} and ${CODEBUDDY_PLUGIN_ROOT} — the
+    // bundled hooks.json uses `${CLAUDE_PLUGIN_ROOT:-${CODEBUDDY_PLUGIN_ROOT}}`
+    // shell fallback, but in JSON-merged form (settings.json hooks field) the
+    // shell expansion still applies because hook commands run in a shell. We
+    // pre-resolve both for clarity and so plain-string consumers also work.
+    const placeholders = [target.rootPlaceholder, target.fallbackPlaceholder].filter(Boolean);
+    for (const ph of placeholders) {
+      out = out.split(ph).join(ideAbsRoot);
+    }
+    // The bash `${VAR:-${OTHER}}` form leaves a literal `:-` between two
+    // already-replaced absolute paths, which won't run. Simplify it: collapse
+    // `<abs>:-<abs>` (or any duplicated form) back to a single `<abs>`.
+    out = out.replace(/\$\{[A-Z_]+:-[^}]+\}/g, ideAbsRoot);
+  }
+  if (target.cursorAdapterPlaceholder) {
+    // hooks-cursor.json hardcodes $HOME/.cursor/plugins/local/trtc-agent-skills/hooks/cursor-adapter.py
+    // — rewrite to the project-local copy we just installed. The placeholder
+    // sits inside a JSON string for a shell command (`python3 <path> arg`).
+    // We need the resulting JSON string to evaluate to a shell-quoted path so
+    // project paths with spaces don't break shell parsing — that means
+    // emitting `\"<abs>\"` (JSON-escaped quotes) into the string.
+    const cursorAdapterAbs = path.join(ideAbsRoot, "hooks", "cursor-adapter.py");
+    const replacement = `\\"${cursorAdapterAbs}\\"`;
+    out = out.split(target.cursorAdapterPlaceholder).join(replacement);
+  }
+  return out;
+}
+
+// Copy the hooks/ source directory into <root>/.{ide}/hooks/ so the dispatched
+// scripts (cursor-adapter.py + the underlying guardrail scripts referenced by
+// hooks.json) sit next to the IDE's skills/.
+function copyHooksDir(target, resolvedRoot) {
+  const dest = path.join(resolvedRoot, target.hooksDir);
+  rmrf(dest);
+  copyRecursive(HOOKS_SRC, dest);
+  return dest;
+}
+
+// Merge the rewritten hook config into the IDE's settings file. The settings
+// file may already contain unrelated user state (permissions, MCP servers,
+// other hooks); we only own the `hooks` key. For Cursor's user-level
+// ~/.cursor/hooks.json we merge per-event arrays so a previously-installed
+// project's adapter path gets replaced by ours but the user's own hook
+// entries (if any) are preserved.
+function mergeHooksConfig(target, resolvedRoot, ideAbsRoot) {
+  const srcPath = path.join(HOOKS_SRC, target.sourceConfig);
+  if (!fs.existsSync(srcPath)) return null;
+
+  const rawSrc = fs.readFileSync(srcPath, "utf8");
+  const rewritten = rewriteHooksContent(rawSrc, target, ideAbsRoot);
+  let parsed;
+  try { parsed = JSON.parse(rewritten); }
+  catch (err) {
+    console.error(c.red(`    ✗ failed to parse rewritten ${target.sourceConfig}: ${err.message}`));
+    return null;
+  }
+
+  const settingsPath = path.isAbsolute(target.settingsFile)
+    ? target.settingsFile
+    : path.join(resolvedRoot, target.settingsFile);
+  ensureDir(path.dirname(settingsPath));
+
+  let existing = {};
+  if (fs.existsSync(settingsPath)) {
+    try { existing = JSON.parse(fs.readFileSync(settingsPath, "utf8")); }
+    catch { existing = {}; }
+  }
+  if (!existing || typeof existing !== "object") existing = {};
+
+  // The hooks payload sits under `hooks` (claude/codebuddy/cursor/codex all
+  // use this key). For Cursor we additionally track our injected entries so we
+  // can later remove only ours on uninstall.
+  const incomingHooks = parsed.hooks || {};
+  if (!existing.hooks || typeof existing.hooks !== "object") existing.hooks = {};
+
+  // Marker used inside user-level cursor hooks.json to identify our entries
+  // when multiple projects install. Tagged on each individual hook entry so
+  // a future uninstall can filter precisely.
+  const tagged = (entry) => {
+    if (entry && typeof entry === "object") {
+      return Object.assign({}, entry, { __trtc_agent_skills__: true });
+    }
+    return entry;
+  };
+
+  for (const [eventName, eventValue] of Object.entries(incomingHooks)) {
+    if (Array.isArray(eventValue)) {
+      // Cursor format: hooks.<event> = [{command: ...}, ...]
+      const stripped = (existing.hooks[eventName] || [])
+        .filter(e => !(e && typeof e === "object" && e.__trtc_agent_skills__));
+      existing.hooks[eventName] = stripped.concat(eventValue.map(tagged));
+    } else if (Array.isArray(existing.hooks[eventName])) {
+      // existing is array (cursor-style), incoming is non-array (claude-style):
+      // overwrite — this combination shouldn't happen in practice.
+      existing.hooks[eventName] = eventValue;
+    } else {
+      // Claude/Codebuddy format: hooks.<event> = [{matcher, hooks: [...]}, ...]
+      // The bundled hooks.json IS the only source for this key; just replace.
+      existing.hooks[eventName] = eventValue;
+    }
+  }
+
+  // Top-level marker so a future uninstall can detect our presence quickly.
+  existing.__trtc_agent_skills__ = {
+    version: PKG_VERSION,
+    hookEvents: Object.keys(incomingHooks),
+  };
+
+  // Preserve / propagate top-level keys that the IDE expects (e.g. cursor
+  // requires `"version": 1` at the root of ~/.cursor/hooks.json or it rejects
+  // the file with "Config version must be a number"). Only copy keys we don't
+  // already own (hooks, __trtc_agent_skills__) to avoid clobbering the user's
+  // unrelated state.
+  for (const [key, val] of Object.entries(parsed)) {
+    if (key === "hooks" || key === "__trtc_agent_skills__") continue;
+    if (existing[key] === undefined) existing[key] = val;
+  }
+
+  fs.writeFileSync(settingsPath, JSON.stringify(existing, null, 2) + "\n", "utf8");
+  return { settingsPath, eventCount: Object.keys(incomingHooks).length };
+}
+
+function installHooks(ideList, resolvedRoot) {
+  for (const ide of ideList) {
+    const target = HOOKS_TARGETS[ide];
+    if (!target) continue;
+
+    const ideAbsRoot = path.join(resolvedRoot, path.dirname(target.hooksDir));
+    const hooksDest = copyHooksDir(target, resolvedRoot);
+    console.log(c.green("    ✓ ") + `${ide} hooks → ${hooksDest}/`);
+
+    const merged = mergeHooksConfig(target, resolvedRoot, ideAbsRoot);
+    if (merged) {
+      const isUserLevel = path.isAbsolute(target.settingsFile);
+      const prefix = isUserLevel ? c.yellow("    ⚠ ") : c.green("    ✓ ");
+      const note   = isUserLevel ? c.dim(" (user-level — affects all cursor projects)") : "";
+      console.log(`${prefix}${ide} hooks settings → ${merged.settingsPath} ${c.dim(`(${merged.eventCount} events)`)}${note}`);
+    }
+  }
+}
+
+// ── AI instruction files installation ─────────────────────────────────────────
+function escapeRegex(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function injectMarkered(srcAbs, destAbs) {
+  const trtcContent = fs.readFileSync(srcAbs, "utf8").trimEnd();
+  const block = `${MD_MARKER_BEGIN}\n${trtcContent}\n${MD_MARKER_END}\n`;
+
+  ensureDir(path.dirname(destAbs));
+  if (!fs.existsSync(destAbs)) {
+    fs.writeFileSync(destAbs, block, "utf8");
+    return "new";
+  }
+  let existing = fs.readFileSync(destAbs, "utf8");
+  const re = new RegExp(`${escapeRegex(MD_MARKER_BEGIN)}[\\s\\S]*?${escapeRegex(MD_MARKER_END)}\\n?`, "g");
+  if (re.test(existing)) {
+    existing = existing.replace(re, block);
+    fs.writeFileSync(destAbs, existing, "utf8");
+    return "replaced";
+  }
+  existing = existing.trimEnd() + "\n\n" + block;
+  fs.writeFileSync(destAbs, existing, "utf8");
+  return "appended";
+}
+
+function installAiInstructions(ideList, resolvedRoot) {
+  for (const ide of ideList) {
+    const target = AI_INSTRUCTION_TARGETS[ide];
+    if (!target) continue;
+
+    const srcAbs  = path.join(PKG_ROOT, target.filename);
+    const destAbs = path.join(resolvedRoot, target.filename);
+    if (!fs.existsSync(srcAbs)) {
+      console.log(c.dim(`    ✓ ${ide} instructions skipped (source missing)`));
+      continue;
+    }
+
+    if (target.type === "cursor-rule") {
+      ensureDir(path.dirname(destAbs));
+      fs.copyFileSync(srcAbs, destAbs);
+      console.log(c.green("    ✓ ") + `${ide} rule → ${destAbs}`);
+    } else if (target.type === "root-md") {
+      const action = injectMarkered(srcAbs, destAbs);
+      const verb = action === "new" ? "created"
+                 : action === "replaced" ? "updated marker block"
+                 : "appended marker block";
+      console.log(c.green("    ✓ ") + `${ide} instructions → ${destAbs} ${c.dim(`(${verb})`)}`);
+    }
+  }
 }
 
 // ── MCP installation ──────────────────────────────────────────────────────────
@@ -373,9 +753,24 @@ function main() {
 
   const isClean   = args.includes("--clean");
   const noReport  = args.includes("--no-report");
-  const ideArg    = getFlag(args, "--ide") || "claude";
+  const ideArg    = getFlag(args, "--ide");
 
-  const ideList = ideArg === "all" ? Object.keys(IDE_TARGETS) : [ideArg];
+  // Resolve ideList:
+  //   no --ide        → auto-detect installed IDEs (default behavior)
+  //   --ide all       → install for every supported IDE
+  //   --ide <name>    → install for that specific IDE only
+  let ideList;
+  let ideListSource;  // for the CLI hint
+  if (!ideArg) {
+    ideList = detectInstalledIDEs();
+    ideListSource = "auto-detected";
+  } else if (ideArg === "all") {
+    ideList = Object.keys(IDE_TARGETS);
+    ideListSource = "all";
+  } else {
+    ideList = [ideArg];
+    ideListSource = "explicit";
+  }
   for (const ide of ideList) {
     if (!IDE_TARGETS[ide]) {
       console.error(c.red(`\n  ✗ Unknown IDE: ${ide}. Valid: ${Object.keys(IDE_TARGETS).join(", ")}, all\n`));
@@ -391,10 +786,21 @@ function main() {
   console.log(`\n  ${c.bold(c.cyan("@tencent-rtc/trtc-agent-skills"))}  ${c.dim("v" + PKG_VERSION)}`);
   console.log(`  ${c.gray("cwd         : " + cwd)}`);
   console.log(`  ${c.gray("projectRoot : " + resolvedRoot)}`);
-  console.log(`  ${c.gray("IDE(s)      : " + ideList.join(", "))}`);
+  const ideHint = ideListSource === "auto-detected"
+    ? c.dim("  (auto-detected; pass --ide all or --ide <name> to override)")
+    : ideListSource === "all"
+      ? c.dim("  (--ide all)")
+      : "";
+  console.log(`  ${c.gray("IDE(s)      : " + ideList.join(", "))}${ideHint}`);
   console.log("");
 
   // 1. Install skill dirs (+ co-located knowledge-base) for each IDE.
+  if (isClean) {
+    // Clean settings hooks + AI instruction markers BEFORE we wipe the IDE
+    // dirs, so we can read the existing settings.json files in place.
+    cleanHooksSettings(ideList, resolvedRoot);
+    cleanAiInstructions(ideList, resolvedRoot);
+  }
   for (const ide of ideList) {
     const target = IDE_TARGETS[ide];
     const skillsRootAbs = path.join(resolvedRoot, target.skillsRoot);
@@ -412,16 +818,25 @@ function main() {
     console.log(c.green("    ✓ ") + "knowledge-base/ " + c.dim("→ " + kbDest));
   }
 
-  // 2. Install MCP server config + permissions.
+  // 2. Install hooks (per-IDE: copy hooks dir + merge settings.json hooks).
+  console.log(`\n  ${c.bold("HOOKS")}`);
+  installHooks(ideList, resolvedRoot);
+
+  // 3. Install AI instruction files (CLAUDE.md / AGENTS.md / CODEBUDDY.md /
+  //    .cursor/rules/ui-mode.mdc) so the agent has routing rules.
+  console.log(`\n  ${c.bold("AI INSTRUCTIONS")}`);
+  installAiInstructions(ideList, resolvedRoot);
+
+  // 4. Install MCP server config + permissions.
   console.log(`\n  ${c.bold("MCP")}`);
   installMcp(ideList, resolvedRoot);
   installClaudePermissions(ideList, resolvedRoot);
   installCursorPermissions(ideList, resolvedRoot);
 
-  // 3. Anonymous install reporting (fire-and-forget; opt out via --no-report).
-  if (!noReport) reportInstall({ ide: ideArg });
+  // 5. Anonymous install reporting (fire-and-forget; opt out via --no-report).
+  if (!noReport) reportInstall({ ide: ideArg || ideListSource });
 
-  // 4. Done.
+  // 6. Done.
   console.log(`\n  ${c.bold("Done.")} ${c.dim("Just describe what you want to build in your IDE — the skill activates automatically.")}\n`);
 }
 

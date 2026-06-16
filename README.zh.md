@@ -10,105 +10,23 @@
 
 ---
 
-## 安装
+### 安装
 
-**Claude Code**
-
-```bash
-# 第一步 — 添加 TRTC 插件市场
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# 第二步 — 安装插件
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# 第三步 — 无需重启，直接激活
-/reload-plugins
-```
-
-**Cursor**
-
-克隆仓库并安装到 Cursor 本地插件目录：
+如果你所在的 IDE 没有插件市场，或者你希望把安装范围限定在某个具体项目里，可以用 npx 安装器。在项目根目录执行：
 
 ```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
-```
+# 默认 — 自动检测已安装的 IDE（~/.{claude,cursor,codebuddy,codex}/）
+# 为每一个检测到的 IDE 都安装好；都没检测到时回退到 claude
+npx -y @tencent-rtc/trtc-agent-skills add
 
-然后按 **`Cmd+Shift+P`**（Mac）/ **`Ctrl+Shift+P`**（Windows/Linux）→ 输入 `Reload Window` 回车（或直接重启 Cursor）。
+# 强制为所有支持的 IDE 都装一份（即使你本机没装那个 IDE）
+npx -y @tencent-rtc/trtc-agent-skills add --ide all
 
-**Codex CLI**
+# 只为某个指定的 IDE 安装
+npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
 
-```bash
-# 第一步 — 添加 TRTC 插件市场
-codex plugin marketplace add Tencent-RTC/agent-skills
-
-# 第二步 — 在 Codex CLI 中打开插件浏览器：
-/plugins
-# 选择 "TRTC Agent Skills" 标签页 → 选择 trtc-agent-skills → 按 Enter 安装
-```
-
-**CodeBuddy CLI**
-
-```bash
-# 第一步 — 添加 TRTC 插件市场
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# 第二步 — 安装插件
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# 第三步 — 无需重启，直接激活
-/reload-plugins
-```
-
-## 配置 MCP
-
-本 Skill 需要配合 [Tencent RTC MCP Server](https://trtc.io/document/78382) 使用。Skill 负责集成引导，MCP 负责提供最新 API 文档和生成测试用 `userSig`。
-
-> YOUR_SDKAPPID 和 YOUR_SECRET_KEY 可在[控制台（国际站）](https://console.trtc.io)/[控制台（中国站）](https://console.cloud.tencent.com)的应用详情页获取。
-
-**Claude Code**
-
-```bash
-claude mcp add tencent-rtc -e SDKAPPID=YOUR_SDKAPPID -e SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**Cursor** — 添加到 `.cursor/mcp.json`：
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
-```
-
-**Codex CLI**
-
-```bash
-codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**CodeBuddy** — 通过 设置 → 添加 MCP 配置：
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
+# 重装前先清理旧的安装
+npx -y @tencent-rtc/trtc-agent-skills add --clean
 ```
 
 ---

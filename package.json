@@ -9,6 +9,12 @@
     "bin/",
     "skills/",
     "knowledge-base/",
+    "hooks/",
+    "ai-instructions/",
+    ".cursor/rules/",
+    "CLAUDE.md",
+    "AGENTS.md",
+    "CODEBUDDY.md",
     "README.md"
   ],
   "engines": {

@@ -10,105 +10,23 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ---
 
-## Installation
+### Installation
 
-**Claude Code**
-
-```bash
-# Step 1 — add the TRTC plugin marketplace
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — install the plugin
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# Step 3 — activate without restarting
-/reload-plugins
-```
-
-**Cursor**
-
-Clone the repo into Cursor's local plugin directory:
+If your IDE doesn't have a plugin marketplace, or you'd rather pin the install to a specific project, use the npx installer. Run it inside your project directory:
 
 ```bash
-git clone https://github.com/Tencent-RTC/agent-skills.git ~/.cursor/plugins/local/trtc-agent-skills
-```
+# Default — auto-detect installed IDEs (~/.{claude,cursor,codebuddy,codex}/)
+# and install for each one found. Falls back to claude if none detected.
+npx -y @tencent-rtc/trtc-agent-skills add
 
-Then press **`Cmd+Shift+P`** (Mac) / **`Ctrl+Shift+P`** (Windows/Linux) → `Reload Window` (or restart Cursor).
+# Force install for every supported IDE (even ones you don't have)
+npx -y @tencent-rtc/trtc-agent-skills add --ide all
 
-**Codex CLI**
+# Install only for one specific IDE
+npx -y @tencent-rtc/trtc-agent-skills add --ide cursor
 
-```bash
-# Step 1 — add the TRTC plugin marketplace
-codex plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — open the plugin browser inside Codex CLI:
-/plugins
-# Select the "TRTC Agent Skills" tab → select trtc-agent-skills → press Enter to install
-```
-
-**CodeBuddy CLI**
-
-```bash
-# Step 1 — add the TRTC plugin marketplace
-/plugin marketplace add Tencent-RTC/agent-skills
-
-# Step 2 — install the plugin
-/plugin install trtc-agent-skills@trtc-marketplace
-
-# Step 3 — activate without restarting
-/reload-plugins
-```
-
-## Using with MCP
-
-This skill is designed to work alongside the [Tencent RTC MCP server](https://trtc.io/document/78382). The skill provides behavioral guidance on how to integrate TRTC, while MCP provides up-to-date API docs and `userSig` generation.
-
-> You can find `YOUR_SDKAPPID` and `YOUR_SECRET_KEY` on the application details page in the [console (International)](https://console.trtc.io) or [console (China)](https://console.cloud.tencent.com).
-
-**Claude Code**
-
-```bash
-claude mcp add tencent-rtc -e SDKAPPID=YOUR_SDKAPPID -e SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**Cursor** — add to `.cursor/mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
-```
-
-**Codex CLI**
-
-```bash
-codex mcp add tencent-rtc --env SDKAPPID=YOUR_SDKAPPID --env SECRETKEY=YOUR_SECRET_KEY -- npx -y @tencentcloud/sdk-mcp@1.4.3
-```
-
-**CodeBuddy** — add via Settings → Add MCP:
-
-```json
-{
-  "mcpServers": {
-    "tencent-rtc": {
-      "command": "npx",
-      "args": ["-y", "@tencentcloud/sdk-mcp@1.4.3"],
-      "env": {
-        "SDKAPPID": "YOUR_SDKAPPID",
-        "SECRETKEY": "YOUR_SECRET_KEY"
-      }
-    }
-  }
-}
+# Wipe a previous install before re-installing
+npx -y @tencent-rtc/trtc-agent-skills add --clean
 ```
 
 ---
