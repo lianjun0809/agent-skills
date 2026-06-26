@@ -25,8 +25,8 @@ Cursor event mapping (see hooks-cursor.json):
   sessionStart        -> trtc-prepare-ui
   beforeReadFile      -> gate-slice-read
   preToolUse          -> gate-slice-write       (filtered to Write/Edit inside)
-  afterFileEdit       -> verify-ui-post-write, verify-slice-must
-  stop                -> stop-apply-evidence, trtc-verify-ui, verify-apply-project
+  afterFileEdit       -> verify-ui-post-write
+  stop                -> stop-apply-evidence, trtc-verify-ui
                          (Claude Code's `Stop` event fires per agent loop
                           iteration end. Cursor's `stop` event has the same
                           semantic ("Called when the agent loop ends") and
@@ -42,10 +42,9 @@ Cursor event mapping (see hooks-cursor.json):
                           firing. Empirically (Cursor 3.3.8) `stop` does
                           fire reliably; the original "stop never fires"
                           observation was caused by hooks not being loaded
-                          at all, not by the `stop` event itself. See
-                          install instructions in the README for the
-                          documented user-level `~/.cursor/hooks.json`
-                          install path — plugin-level hooks declared in
+                          at all, not by the `stop` event itself. npx
+                          installs to project-level `.cursor/hooks.json`;
+                          plugin-level hooks declared in
                           .cursor-plugin/plugin.json are NOT loaded by
                           current Cursor versions.)
 
@@ -62,7 +61,24 @@ import sys
 from pathlib import Path
 
 ADAPTER_DIR = Path(__file__).resolve().parent
-PLUGIN_ROOT = ADAPTER_DIR.parent  # plugin install root
+
+
+def _find_plugin_root(start: Path) -> Path:
+    # Walk up until we find a directory that contains skills/. This makes the
+    # adapter location-independent: it works whether it lives at
+    # <plugin>/hooks/cursor-adapter.py (Cursor plugin install + the original
+    # npx layout) or under a namespaced subdir like
+    # <plugin>/hooks/trtc-agent-skills/cursor-adapter.py (current npx layout,
+    # chosen so multiple skill packages can co-exist under .cursor/hooks/).
+    # Falls back to the old `.parent` behaviour if no `skills/` is found, so
+    # we never regress an existing install.
+    for candidate in (start, *start.parents):
+        if (candidate / "skills").is_dir():
+            return candidate
+    return start.parent
+
+
+PLUGIN_ROOT = _find_plugin_root(ADAPTER_DIR)
 
 
 # Optional debug logging — only writes when TRTC_HOOK_DEBUG_LOG is set to a
@@ -103,23 +119,20 @@ def _probe_log(key, payload) -> None:
 
 # Dispatch table: dispatch_key -> relative script path under PLUGIN_ROOT.
 DISPATCH = {
-    "trtc-prepare-ui":      "skills/trtc/room-builder/guardrails/trtc_prepare_ui.py",
-    "gate-slice-read":      "skills/trtc-topic/guardrails/gate_slice_read.py",
-    "gate-slice-write":     "skills/trtc-topic/guardrails/gate_slice_write.py",
-    "verify-ui-post-write": "skills/trtc/room-builder/guardrails/verify_ui_post_write.sh",
-    "verify-slice-must":    "skills/trtc-apply/guardrails/verify_slice_must_rules.py",
-    "stop-apply-evidence":  "skills/trtc-topic/guardrails/stop_require_apply_evidence.py",
-    "trtc-verify-ui":       "skills/trtc/room-builder/guardrails/trtc_verify_ui.py",
-    "verify-apply-project": "skills/trtc-apply/guardrails/verify_apply_project.py",
+    "gate-slice-read":                        "skills/trtc/hooks/gate_slice_read.py",
+    "topic-phase-gate":                       "skills/trtc/hooks/topic_phase_gate.py",
+    "gate-slice-write":                       "skills/trtc/hooks/gate_slice_write.py",
+    "stop-apply-evidence":                    "skills/trtc/hooks/stop_require_apply_evidence.py",
+    "pretooluse-require-business-decisions":  "skills/trtc-conference/hooks/pretooluse_require_business_decisions.py",
 }
 
 # Dispatch keys whose underlying scripts read JSON from stdin.
 # Other keys are CLI-only and will receive empty stdin.
 STDIN_KEYS = {
     "gate-slice-read",
+    "topic-phase-gate",
     "gate-slice-write",
-    "verify-ui-post-write",
-    "verify-slice-must",
+    "pretooluse-require-business-decisions",
 }
 
 
@@ -164,7 +177,21 @@ def _translate_payload(key: str, cursor: dict) -> dict:
         tool_input = cursor.get("tool_input") or cursor.get("toolInput") or {}
         return {"tool_name": tool_name, "tool_input": tool_input}
 
-    if key in ("verify-ui-post-write", "verify-slice-must"):
+    if key == "topic-phase-gate":
+        tool_name = cursor.get("tool_name") or cursor.get("toolName")
+        if tool_name not in ("Write", "Edit"):
+            return {}
+        tool_input = cursor.get("tool_input") or cursor.get("toolInput") or {}
+        return {"tool_name": tool_name, "tool_input": tool_input}
+
+    if key == "pretooluse-require-business-decisions":
+        tool_name = cursor.get("tool_name") or cursor.get("toolName")
+        if tool_name not in ("Write", "Edit"):
+            return {}
+        tool_input = cursor.get("tool_input") or cursor.get("toolInput") or {}
+        return {"tool_name": tool_name, "tool_input": tool_input}
+
+    if key in ("verify-ui-post-write",):
         # Cursor's afterFileEdit payload: {file_path, edits}
         file_path = cursor.get("file_path") or cursor.get("filePath")
         return {"tool_name": "Edit", "tool_input": {"file_path": file_path}}
