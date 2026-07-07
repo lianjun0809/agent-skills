@@ -62,6 +62,7 @@ const SKILL_ALLOWLIST = new Set([
   "trtc-docs",
   "trtc-conference",
   "trtc-ai-service",
+  "trtc-ai-oral-coach",
   "trtc-chat",
 ]);
 
@@ -156,7 +157,6 @@ const HOOKS_TARGETS = {
     // PLUGIN_ROOT by walking up to the nearest dir containing skills/, so
     // this nested location still resolves correctly.
     hooksDir:        ".cursor/hooks/trtc-agent-skills",
-    hooksFiles:      ["cursor-adapter.py"],
     settingsFile:    ".cursor/hooks.json",
     sourceConfig:    "hooks-cursor.json",
     // The hardcoded path string we need to rewrite in hooks-cursor.json.
@@ -170,11 +170,13 @@ const HOOKS_TARGETS = {
 // one of these path-segment hints — every guardrail script we ship lives under
 // `skills/<skill>/hooks/` or `skills/<skill>/guardrails/`, and the cursor
 // adapter under our namespaced hooks subdir.
+// NOTE: trtc-topic and trtc-apply are no longer in SKILL_ALLOWLIST, but their
+// hints are kept here so --clean can remove hook entries left by older installs.
 const OWNED_COMMAND_HINTS = [
   "/skills/trtc/hooks/",
   "/skills/trtc/room-builder/guardrails/",
-  "/skills/trtc-topic/guardrails/",
-  "/skills/trtc-apply/guardrails/",
+  "/skills/trtc-topic/guardrails/",   // legacy — removed from allowlist, kept for cleanup
+  "/skills/trtc-apply/guardrails/",   // legacy — removed from allowlist, kept for cleanup
   "/skills/trtc-conference/hooks/",
   "/hooks/trtc-agent-skills/cursor-adapter.py",
 ];
@@ -351,13 +353,12 @@ function printHelp() {
 
 function listSkills() {
   const descriptions = {
-    "trtc":             "Entry router — detects product/platform, routes to sub-skills",
-    "trtc-ai-service":  "AI customer service scenarios (TRTC Conversational AI)",
-    "trtc-onboarding":  "Get-started / integration / troubleshooting flow",
-    "trtc-docs":        "Docs & error-code lookup",
-    "trtc-topic":       "Step-by-step scenario walkthrough",
-    "trtc-search":      "Internal slice lookup (AI-facing)",
-    "trtc-apply":       "Internal compile/integration quality gate",
+    "trtc":               "Entry router — detects product/platform, routes to sub-skills",
+    "trtc-docs":          "Docs & error-code lookup",
+    "trtc-conference":    "Video conference / multi-person room scenarios",
+    "trtc-ai-service":    "AI customer service scenarios (TRTC Conversational AI)",
+    "trtc-ai-oral-coach": "AI oral speaking coach / 口语陪练 (TRTC Conversational AI)",
+    "trtc-chat":          "IM / Chat SDK integration",
   };
   console.log(`\n  ${c.bold("Skills shipped in this package:")}\n`);
   for (const name of getSkillNames()) {
@@ -368,7 +369,7 @@ function listSkills() {
 }
 
 // ── core: skill install ─────────────────────────────────────────────────────────
-function cleanSkills(skillsRootAbs) {
+function cleanSkills(skillsRootAbs, ide) {
   if (!fs.existsSync(skillsRootAbs)) return 0;
   let wiped = 0;
   for (const name of getSkillNames()) {
@@ -378,9 +379,15 @@ function cleanSkills(skillsRootAbs) {
   // also wipe a co-located knowledge-base copy if present
   const kb = path.join(path.dirname(skillsRootAbs), "knowledge-base");
   if (fs.existsSync(kb)) { rmrf(kb); }
-  // also wipe a co-located hooks/ copy if present (npx-mode hook scripts)
-  const hooks = path.join(path.dirname(skillsRootAbs), "hooks");
-  if (fs.existsSync(hooks)) { rmrf(hooks); }
+  // Wipe only our exact hooks dir (not the IDE's hooks/ parent). For cursor
+  // this is the namespaced .cursor/hooks/trtc-agent-skills/ subdir; for other
+  // IDEs it coincides with the parent .{ide}/hooks/ dir.
+  const hooksTarget = HOOKS_TARGETS[ide];
+  const resolvedRoot = path.dirname(path.dirname(skillsRootAbs));
+  const hooksDir = hooksTarget
+    ? path.join(resolvedRoot, hooksTarget.hooksDir)
+    : path.join(path.dirname(skillsRootAbs), "hooks");
+  if (fs.existsSync(hooksDir)) { rmrf(hooksDir); }
   return wiped;
 }
 
@@ -912,7 +919,7 @@ function main() {
     console.log(`  ${c.bold(ide)}  ${c.gray("→ " + skillsRootAbs + "/")}`);
 
     if (isClean) {
-      const wiped = cleanSkills(skillsRootAbs);
+      const wiped = cleanSkills(skillsRootAbs, ide);
       if (wiped > 0) console.log(c.dim(`    ✓ cleaned ${wiped} existing skill ${wiped === 1 ? "entry" : "entries"}`));
     }
 
