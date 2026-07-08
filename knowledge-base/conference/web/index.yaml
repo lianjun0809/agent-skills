@@ -107,20 +107,20 @@ slices:
 
   - id: conference/official-roomkit-api
     name: 官方 RoomKit 适配层 API
-    keywords: [roomkit, tuiroomkit, tui-roomkit, conference-api]
+    keywords: [roomkit, tuiroomkit, tui-roomkit, conference-api, react, vue3, roomkit-web-react]
     tags: [official-roomkit, conference-api, conference-object, setWidgetVisible, registerWidget,
-           onWill, setFeatureConfig, createAndJoinRoom, joinRoom, UIKitProvider]
+           onWill, setFeatureConfig, createAndJoinRoom, joinRoom, UIKitProvider, React, Vue3]
     file: slices/conference/web/official-roomkit-api.md
     description: >
-      官方 RoomKit 集成模式下 conference 对象的完整 API 签名、枚举定义、调用时序和代码示例
+      官方 RoomKit 集成模式下 Vue3 / React conference 对象的完整 API 签名、枚举定义、调用时序和代码示例
       （ui_mode=official-roomkit 专用）
 
   - id: conference/official-roomkit-login-ui
     name: 官方 RoomKit 登录 UI
-    keywords: [roomkit, login-ui, tuiroomkit]
-    tags: [official-roomkit, login-ui, layout, form, UIKitProvider, LoginPanel]
+    keywords: [roomkit, login-ui, tuiroomkit, react, vue3]
+    tags: [official-roomkit, login-ui, layout, form, UIKitProvider, LoginPanel, React, Vue3]
     file: slices/conference/web/official-roomkit-login-ui.md
-    description: 官方 RoomKit 登录页的布局、表单、凭证提示与状态反馈规范，包括 UIKitProvider 与 LoginPanel 集成约束
+    description: 官方 RoomKit 登录页的布局、表单、凭证提示与状态反馈规范，包括 Vue3 / React UIKitProvider 与 LoginPanel 集成约束
 
   - id: conference/integration-audit
     name: Conference Web 集成审计

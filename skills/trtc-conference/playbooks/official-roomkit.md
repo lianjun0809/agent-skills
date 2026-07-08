@@ -44,8 +44,9 @@ python3 -m tools.flow enter --playbook official-roomkit --product conference --p
 
 ### Step 2：一次性生成项目文件
 
+- **框架判定**：优先读取项目 `package.json`；依赖含 `react` / `next` 时生成 React 版本（`.tsx`，使用 `@tencentcloud/roomkit-web-react`、`tuikit-atomicx-react`、`@tencentcloud/uikit-base-component-react`）；依赖含 `vue` / `@vitejs/plugin-vue` 时生成 Vue3 版本（`.vue` / `.ts`，使用 `@tencentcloud/roomkit-web-vue3`、`tuikit-atomicx-vue3`、`@tencentcloud/uikit-base-component-vue3`）。用户明确指定 React 或 Vue3 时，以用户指定为准。
 - **登录页**：按 `usersig_source` 分支（见 `../references/usersig-handling.md`）生成凭证部分：`local-dev` → 复制 bundled lib，登录调用 `getBasicInfo(userId)`；`console` → SDKAppID + UserSig 粘贴字段；`backend` → API fetch skeleton
-- **会议室页**：在 `UIKitProvider` 内挂载 `ConferenceMainView`（移动端用 `ConferenceMainViewH5`），接入 `conference.*` API 调用
+- **会议室页**：在对应框架的 `UIKitProvider` 内挂载官方 `ConferenceMainView`（Vue3 移动端可用 `ConferenceMainViewH5`），接入同包导出的 `conference.*` API 调用
 - **路由配置**：登录 → 会议室的跳转逻辑
 - **场景定制**（若有）：按已选 scenario 调用 `setWidgetVisible` 隐藏/显示对应挂件
 
@@ -54,6 +55,7 @@ python3 -m tools.flow enter --playbook official-roomkit --product conference --p
 对照 `official-roomkit-api.md` 的 MUST/MUST NOT，验证生成的代码：
 
 - 无手写 `crypto-js` / `pako` UserSig 签名器（`src/utils/usersig.ts` 等）
+- React 项目不得出现 `@tencentcloud/roomkit-web-vue3` / `tuikit-atomicx-vue3` / `.vue` 会议页面；Vue3 项目不得出现 `@tencentcloud/roomkit-web-react` / `tuikit-atomicx-react` / TSX 会议页面
 - `local-dev`：`SDKSECRETKEY` 只允许在 `src/config/basic-info-config.ts` 中；其他任何文件不得出现 SecretKey
 - `console` / `backend`：客户端代码无 `SecretKey`，无 signing bundle
 - `conference.login()` 在所有房间操作之前调用

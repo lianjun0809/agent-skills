@@ -119,7 +119,7 @@ For each key, the guidance follows: ① explain what it does in one sentence; �
 
 **Key 1 · TRTC App Credentials** (the voice channel):
 > How to get them: Go to the TRTC console, create an **RTC Engine** app (supports Conversational AI):
-> 1. Open https://console.trtc.io/?quickclaim=engine_trial and sign up / log in (China region: https://console.cloud.tencent.com/trtc);
+> 1. Open https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and sign up / log in (China region: https://console.cloud.tencent.com/trtc);
 > 2. Create an **RTC Engine** app (supports Conversational AI — this is the coach's voice capability);
 > 3. Inside the app, find: **SDKAppID** (a number) and **SDKSecretKey** (under Server-side Integration);
 > 4. ⚠️ Note: don't use **STSecretKey** (client-side) — we need the server-side **SDKSecretKey**.
@@ -130,7 +130,7 @@ TRTC_SDK_SECRET_KEY=yourSDKSecretKey  # Server-side SDKSecretKey, NOT client-sid
 ```
 > Verify: `python3 scripts/verify-credentials.py --type trtc`
 
-**Key 2 · Tencent Cloud API Key** (the "front desk"; open https://console.tencentcloud.com/cam/capi — this link syncs your TRTC login session, no need to re-register):
+**Key 2 · Tencent Cloud API Key** (the "front desk"; open https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE — this link syncs your TRTC login session, no need to re-register):
 ```
 # Front desk for issuing temporary passes
 TENCENT_CLOUD_SECRET_ID=yourSecretId

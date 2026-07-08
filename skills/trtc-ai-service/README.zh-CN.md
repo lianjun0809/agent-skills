@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/a2ad1d81-7282-42d1-b5ae-a0b9ec73933b
 
 ## 关于 Tencent RTC
 
-[Tencent RTC](https://trtc.io)（实时音视频）为全球数千家企业提供实时音频、视频和对话式 AI 体验。依托覆盖 200+ 国家和地区的全球边缘网络，TRTC 提供低于 300ms 的超低延迟大规模实时通信能力。
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ)（实时音视频）为全球数千家企业提供实时音频、视频和对话式 AI 体验。依托覆盖 200+ 国家和地区的全球边缘网络，TRTC 提供低于 300ms 的超低延迟大规模实时通信能力。
 
 **Conversational AI** 能力让开发者可以构建能够聆听、理解并自然回应的语音智能体——非常适合客服、销售辅助和智能自助服务场景。
 
@@ -81,8 +81,8 @@ npx -y @tencent-rtc/trtc-agent-skills@latest add --clean
 
 | 密钥 | 用途 | 获取地址 |
 |------|------|---------|
-| 密钥 1：TRTC 应用凭证 | 让智能体能够拨打电话和进行语音聊天 | https://console.trtc.io/?quickclaim=engine_trial（注册并创建 **RTC Engine** 应用，支持 Conversational AI） |
-| 密钥 2：Tencent Cloud API Key | 证明你有权限使用 TRTC 语音和通话服务（登录态与 TRTC 账号自动同步） | https://console.tencentcloud.com/cam/capi |
+| 密钥 1：TRTC 应用凭证 | 让智能体能够拨打电话和进行语音聊天 | https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw（注册并创建 **RTC Engine** 应用，支持 Conversational AI） |
+| 密钥 2：Tencent Cloud API Key | 证明你有权限使用 TRTC 语音和通话服务（登录态与 TRTC 账号自动同步） | https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE |
 | 密钥 3：LLM API Key | 让智能体能够"思考"——理解用户问题并回复 | 你注册的 AI 服务网站（如 OpenAI、DeepSeek 等） |
 
 > AI 会一步步详细告诉你如何获取每个密钥。你的密钥信息仅用于本次配置会话——系统不会记录或泄露。
