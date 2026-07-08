@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/9e586749-d810-4c5a-bb27-356a3b74d486
 
 ## About Tencent RTC
 
-[Tencent RTC](https://trtc.io) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
 
 The **Conversational AI** capability enables developers to build voice agents that can listen, understand, and respond naturally — perfect for language learning, speaking practice, and interactive tutoring.
 
@@ -43,8 +43,8 @@ To get the coach running, you need 3 cloud service credentials:
 
 | Key | Purpose | Where to find it |
 |-----|---------|-----------------|
-| 1: TRTC App Credentials | Voice channel for the coach | https://console.trtc.io/?quickclaim=engine_trial |
-| 2: Tencent Cloud API Key | Backend permissions (login syncs with TRTC) | https://console.tencentcloud.com/cam/capi |
+| 1: TRTC App Credentials | Voice channel for the coach | https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw |
+| 2: Tencent Cloud API Key | Backend permissions (login syncs with TRTC) | https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE |
 | 3: LLM API Key | The coach's "brain" — understand, correct, generate reports | Your AI provider (OpenAI, DeepSeek, etc.) |
 
 ## What capabilities does the coach have?

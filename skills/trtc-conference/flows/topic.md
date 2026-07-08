@@ -382,10 +382,13 @@ conference topic 必须在 phase 入口读取一次 `ui_mode`，并在整个 ses
 **`ui_mode = official-roomkit`**
 
 - 读取 `../playbooks/official-roomkit.md` 与 `../references/usersig-handling.md`，把它们当作官方 RoomKit 模式的细节来源。
-- 生成的是官方 RoomKit 集成，不是自造会议 UI。必须使用 `@tencentcloud/roomkit-web-vue3` 官方组件 `ConferenceMainView` / `ConferenceMainViewH5`，并放在 `UIKitProvider` 中。
-- RoomKit 版本若涉及 UI customization API，必须验证 `>=5.4.3`。
+- 生成的是官方 RoomKit 集成，不是自造会议 UI。必须根据项目框架选择官方组件包：
+  - Vue3：`@tencentcloud/roomkit-web-vue3` + `@tencentcloud/uikit-base-component-vue3`，渲染 `ConferenceMainView` / `ConferenceMainViewH5`。
+  - React：`@tencentcloud/roomkit-web-react` + `@tencentcloud/uikit-base-component-react`，渲染 `ConferenceMainView`。
+- RoomKit 版本若涉及 UI customization API，Vue3 必须验证 `@tencentcloud/roomkit-web-vue3 >=5.4.3`；React 必须使用 `@tencentcloud/roomkit-web-react` 与同版本族 `tuikit-atomicx-react`。
 - 登录链路必须遵守：`conference.login()` → `setSelfInfo()` → `createAndJoinRoom()` / `joinRoom()`。
 - `setWidgetVisible()`、`registerWidget()`、`onWill()` 应在 login 成功后、进房前注册；`shareLink` 在真正拿到最终 `roomId` 后写入。
+- 禁止框架串包：React 项目不得生成 Vue SFC 或 `roomkit-web-vue3` 导入；Vue3 项目不得生成 TSX/JSX 或 `roomkit-web-react` 导入。
 - 禁止生成 meeting-classic 风格 SFC、`ui-*` 模板、主题资源、browser-side UserSig signer。
 
 **`ui_mode = headless`**
@@ -432,6 +435,7 @@ conference topic 必须在 phase 入口读取一次 `ui_mode`，并在整个 ses
 **Official RoomKit acceptance check**
 
 - 生成结果必须真的 import 并渲染官方 RoomKit 组件，而不是复刻会议 UI。
+- 生成结果必须按项目框架使用正确包名：React 用 `@tencentcloud/roomkit-web-react` / `tuikit-atomicx-react` / `@tencentcloud/uikit-base-component-react`；Vue3 用 `@tencentcloud/roomkit-web-vue3` / `tuikit-atomicx-vue3` / `@tencentcloud/uikit-base-component-vue3`。
 - 登录代码拿 `userSig` 的方式只能是 local-dev bundled lib / 后端 / runtime input / placeholder；不得落 `src/utils/usersig.ts` 或 client-side signer。
 - UI 定制只能通过 `setWidgetVisible()`、`registerWidget()`、`onWill()` 与文档允许的 `setFeatureConfig()`。
 - `shareLink` 必须在 `createAndJoinRoom()` / `joinRoom()` 成功后、已知最终 `roomId` 时写入。

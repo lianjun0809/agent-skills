@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/9e586749-d810-4c5a-bb27-356a3b74d486
 
 ## 关于 Tencent RTC
 
-[Tencent RTC](https://trtc.io)（实时音视频通信）为全球数千家企业提供实时音频、视频和对话式 AI 能力，全球边缘网络覆盖 200+ 国家和地区，端到端延迟低于 300ms。
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ)（实时音视频通信）为全球数千家企业提供实时音频、视频和对话式 AI 能力，全球边缘网络覆盖 200+ 国家和地区，端到端延迟低于 300ms。
 
 **Conversational AI** 能力让开发者可以构建能听、能理解、能自然回应的语音智能体 —— 特别适合语言学习、口语练习和互动教学场景。
 
@@ -43,8 +43,8 @@ AI（全程自动处理）：
 
 | 钥匙 | 用途 | 在哪里获取 |
 |------|------|-----------|
-| 1: TRTC 应用凭据 | 教练的语音通道 | https://console.trtc.io/?quickclaim=engine_trial |
-| 2: 腾讯云 API 密钥 | 后台权限（和 TRTC 同一套登录，不用重新注册） | https://console.tencentcloud.com/cam/capi |
+| 1: TRTC 应用凭据 | 教练的语音通道 | https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw |
+| 2: 腾讯云 API 密钥 | 后台权限（和 TRTC 同一套登录，不用重新注册） | https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE |
 | 3: LLM API Key | 教练的"大脑"——听懂你、纠正你、出报告 | 你的 AI 服务商（OpenAI、DeepSeek 等） |
 
 ## 教练有哪些能力？

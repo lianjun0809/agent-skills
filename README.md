@@ -2,7 +2,7 @@
 
 **English** | [简体中文](README.zh.md)
 
-An agent skill provided by [TRTC](https://trtc.io) (Tencent Real-Time Communication) to help developers integrate real-time audio/video, live streaming, and instant messaging into their apps — from first setup to production-ready code.
+An agent skill provided by [TRTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ) (Tencent Real-Time Communication) to help developers integrate real-time audio/video, live streaming, and instant messaging into their apps — from first setup to production-ready code.
 
 Instead of reading through long documentation, you describe what you want to build in plain language. The skill routes your request to the right knowledge, asks a few clarifying questions, and walks you through the integration step by step.
 
@@ -12,7 +12,7 @@ You can use it to build scenarios like video conferencing, live streaming rooms,
 
 ## About Tencent RTC
 
-[Tencent RTC](https://trtc.io) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ) (Real-Time Communication) powers real-time audio, video, and conversational AI experiences for thousands of businesses worldwide. With a global edge network spanning 200+ countries and regions, TRTC delivers sub-300ms ultra-low latency at scale.
 
 ---
 
@@ -57,7 +57,7 @@ The skill saves your progress in the project. If you close the tool and come bac
 
 | Product | Description | Availability |
 |---------|-------------|--------------|
-| **Conference** | Video conferencing — multi-party meetings, screen sharing, in-meeting chat | Web ✅ |
+| **Conference** | Video conferencing — multi-party meetings, screen sharing, in-meeting chat | Web ✅ (Vue3 / React) |
 | **Conversational AI** | Voice-first AI agents — AI customer service (voice agent, knowledge base, human handoff, tool calling, session summary) and AI oral coach (scenario roleplay, quick correction, reply suggestions, ability report) | Web ✅ |
 | **Live** | Interactive live streaming — anchor/audience roles, co-hosting, barrage, gifts, beauty filters | Coming soon |
 | **Chat** | Instant messaging — messages, conversations, groups, user profiles | Web ✅ |
@@ -77,7 +77,7 @@ When you describe what you want to build, the skill:
 - **Walks through** one capability at a time with production-ready code, waits for you to confirm it works, then moves to the next step
 - **Saves your progress** to `.trtc-session.yaml` in your project root (auto-added to `.gitignore`) so you can resume in a later session without re-explaining what you're building
 
-Step-by-step integration is currently available for **Conference on Web**, **Chat on Web**, and **Conversational AI (AI customer service & AI oral coach)**. The Conversational AI skills use their own capability model — they do not follow the slice/scenario pipeline; instead they guide you through credential setup, capability selection, and launch in a self-contained flow. Docs lookup, error code search, and pricing questions work across all TRTC products.
+Step-by-step integration is currently available for **Conference on Web (Vue3 / React official RoomKit path)**, **Chat on Web**, and **Conversational AI (AI customer service & AI oral coach)**. The Conversational AI skills use their own capability model — they do not follow the slice/scenario pipeline; instead they guide you through credential setup, capability selection, and launch in a self-contained flow. Docs lookup, error code search, and pricing questions work across all TRTC products.
 
 ### Knowledge base: Slices and Scenarios
 

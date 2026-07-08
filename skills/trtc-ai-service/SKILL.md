@@ -278,13 +278,13 @@ Send each key's value through the chat, and I'll write them into the `.env` file
 # ==========================================
 
 # --- Key 1: TRTC Application Credentials ---
-# Get them here: https://console.trtc.io/?quickclaim=engine_trial (register & create an RTC Engine application — supports Conversational AI)
+# Get them here: https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw (register & create an RTC Engine application — supports Conversational AI)
 # (China-region accounts use: https://console.cloud.tencent.com/trtc)
 TRTC_SDK_APP_ID=yourSDKAppID (e.g., 1400000000)
 TRTC_SDK_SECRET_KEY=yourSDKSecretKey (64-character string)
 
 # --- Key 2: Tencent Cloud API Credentials ---
-# Get them here: https://console.tencentcloud.com/cam/capi (your TRTC login session syncs automatically)
+# Get them here: https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE (your TRTC login session syncs automatically)
 TENCENT_CLOUD_SECRET_ID=yourSecretId
 TENCENT_CLOUD_SECRET_KEY=yourSecretKey
 
@@ -303,7 +303,7 @@ LLM_MODEL_NAME=yourModelName (e.g., gpt-4o / deepseek-chat / claude-3-opus)
 
 **The AI should say**:
 > Key 1 — TRTC Application Credentials. This is the voice channel for your agent.
-> 1. Go to https://console.trtc.io/?quickclaim=engine_trial and log in / register (China: use https://console.cloud.tencent.com/trtc)
+> 1. Go to https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and log in / register (China: use https://console.cloud.tencent.com/trtc)
 > 2. Create an **RTC Engine** application (supports Conversational AI)
 > 3. Inside the app, find **SDKAppID** (number) and **SDKSecretKey** (in "Server-side Integration")
 > 4. ⚠️ STSecretKey is client-side — we need **SDKSecretKey** (server-side)
@@ -322,7 +322,7 @@ TRTC_SDK_SECRET_KEY=yourSDKSecretKey
 
 **The AI should say**:
 > Key 2 — Tencent Cloud API Credentials. Quick context: TRTC handles the voice calls, Tencent Cloud handles backend (permissions, STS tokens, billing). They share the same login — no need to register again.
-> 1. Open https://console.tencentcloud.com/cam/capi (login syncs automatically)
+> 1. Open https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE (login syncs automatically)
 > 2. Under "API Key Management", find **SecretId** and **SecretKey**
 >
 > Fill in below and send:

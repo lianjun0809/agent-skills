@@ -8,7 +8,7 @@ https://github.com/user-attachments/assets/9e586749-d810-4c5a-bb27-356a3b74d486
 
 ## Tencent RTC について
 
-[Tencent RTC](https://trtc.io)（リアルタイムコミュニケーション）は、世界中の数千社にリアルタイム音声・ビデオ・会話型 AI 機能を提供しています。200以上の国と地域をカバーするグローバルエッジネットワークにより、300ms未満の超低遅延を実現します。
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ)（リアルタイムコミュニケーション）は、世界中の数千社にリアルタイム音声・ビデオ・会話型 AI 機能を提供しています。200以上の国と地域をカバーするグローバルエッジネットワークにより、300ms未満の超低遅延を実現します。
 
 **Conversational AI** 機能により、聞いて理解し自然に応答する音声エージェントを構築できます。語学学習、スピーキング練習、インタラクティブなチュータリングに最適です。
 
@@ -43,8 +43,8 @@ AI（すべて自動実行）：
 
 | キー | 目的 | 入手先 |
 |------|------|--------|
-| 1: TRTCアプリ認証情報 | コーチの音声チャネル | https://console.trtc.io/?quickclaim=engine_trial |
-| 2: Tencent Cloud APIキー | バックエンド権限（TRTCと同一ログイン） | https://console.tencentcloud.com/cam/capi |
+| 1: TRTCアプリ認証情報 | コーチの音声チャネル | https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw |
+| 2: Tencent Cloud APIキー | バックエンド権限（TRTCと同一ログイン） | https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE |
 | 3: LLM APIキー | コーチの「頭脳」— 理解・添削・レポート生成 | AIプロバイダー（OpenAI、DeepSeekなど） |
 
 ## コーチの機能

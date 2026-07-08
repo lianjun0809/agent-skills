@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[3]
 CONFERENCE_TOPIC = ROOT / "skills" / "trtc-conference" / "flows" / "topic.md"
 CONFERENCE_ONBOARDING = ROOT / "skills" / "trtc-conference" / "flows" / "onboarding.md"
+OFFICIAL_ROOMKIT_PLAYBOOK = ROOT / "skills" / "trtc-conference" / "playbooks" / "official-roomkit.md"
 
 
 def _section(text: str, start: str, end: str | None = None) -> str:
@@ -130,3 +131,18 @@ def test_dispatcher_routes_conference_topic_through_domain_skill() -> None:
     assert "../trtc-conference/SKILL.md" in text
     assert "trtc-topic" not in text
     assert "dispatcher → conference domain skill → onboarding/topic flow" in text
+
+
+def test_conference_official_roomkit_rules_support_react_and_vue3() -> None:
+    topic = CONFERENCE_TOPIC.read_text()
+    playbook = OFFICIAL_ROOMKIT_PLAYBOOK.read_text()
+
+    assert "@tencentcloud/roomkit-web-react" in topic
+    assert "tuikit-atomicx-react" in topic
+    assert "@tencentcloud/uikit-base-component-react" in topic
+    assert "React 项目不得生成 Vue SFC" in topic
+
+    assert "依赖含 `react` / `next` 时生成 React 版本" in playbook
+    assert "@tencentcloud/roomkit-web-react" in playbook
+    assert "tuikit-atomicx-react" in playbook
+    assert "React 项目不得出现 `@tencentcloud/roomkit-web-vue3`" in playbook

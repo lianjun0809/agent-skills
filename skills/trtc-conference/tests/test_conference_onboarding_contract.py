@@ -34,6 +34,15 @@ def test_conference_onboarding_uses_tools_session_protocol() -> None:
     )
 
 
+def test_conference_onboarding_declares_react_support() -> None:
+    text = _read()
+
+    assert "Conference Web onboarding 已支持 Vue3 与 React 项目" in text
+    assert "@tencentcloud/roomkit-web-react" in text
+    assert "tuikit-atomicx-react" in text
+    assert "不得把 React 项目降级为“不支持”或强制改成 Vue3" in text
+
+
 def test_conference_onboarding_completed_session_cleanup_contract() -> None:
     text = _read()
     section = _section(text, "## 入口检查", "## 路径一：integrate-scenario")

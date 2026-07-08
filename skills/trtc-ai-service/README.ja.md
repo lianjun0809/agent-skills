@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/a2ad1d81-7282-42d1-b5ae-a0b9ec73933b
 
 ## Tencent RTC について
 
-[Tencent RTC](https://trtc.io)（リアルタイムコミュニケーション）は、世界中の数千の企業にリアルタイムの音声、ビデオ、会話型 AI 体験を提供しています。200以上の国と地域をカバーするグローバルエッジネットワークにより、TRTCは大規模で300ms未満の超低遅延を実現します。
+[Tencent RTC](https://trtc.io/?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=HIzH2eVJ)（リアルタイムコミュニケーション）は、世界中の数千の企業にリアルタイムの音声、ビデオ、会話型 AI 体験を提供しています。200以上の国と地域をカバーするグローバルエッジネットワークにより、TRTCは大規模で300ms未満の超低遅延を実現します。
 
 **Conversational AI** 機能により、開発者は聞き取り、理解し、自然に応答できる音声エージェントを構築できます——カスタマーサービス、販売支援、インテリジェントなセルフサービスシナリオに最適です。
 
@@ -83,8 +83,8 @@ npx -y @tencent-rtc/trtc-agent-skills@latest add --clean
 
 | キー | 目的 | 入手先 |
 |-----|---------|-----------------|
-| キー 1：TRTC アプリケーション認証情報 | エージェントが通話や音声チャットを実行可能にします | https://console.trtc.io/?quickclaim=engine_trial（登録して **RTC Engine** アプリを作成 — Conversational AI 対応） |
-| キー 2：Tencent Cloud API キー | Tencent Cloud 音声・通話サービスを使用する権限を証明します（TRTC アカウントとログインが同期されます） | https://console.tencentcloud.com/cam/capi |
+| キー 1：TRTC アプリケーション認証情報 | エージェントが通話や音声チャットを実行可能にします | https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw（登録して **RTC Engine** アプリを作成 — Conversational AI 対応） |
+| キー 2：Tencent Cloud API キー | Tencent Cloud 音声・通話サービスを使用する権限を証明します（TRTC アカウントとログインが同期されます） | https://console.tencentcloud.com/cam/capi?utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=v0K1Q0DSE |
 | キー 3：LLM API キー | エージェントが「考え」— 問い合わせを理解して応答できるようにします | 登録している AI サービス Web サイト（OpenAI、DeepSeek など） |
 
 > AI が各キーの取得方法をステップバイステップで詳しく説明します。キー情報はこの設定セッションでのみ使用され — システムが記録したり漏洩したりすることはありません。

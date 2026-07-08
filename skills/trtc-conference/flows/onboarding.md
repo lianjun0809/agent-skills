@@ -6,6 +6,12 @@
 > - `integrate-scenario`：写 coverage_decided；仅 1v1 路径同时写 confirmed_plan 全集 → 移交 topic（`integration_path = topic`）
 > - `integrate-feature`：功能搜索（写 confirmed_plan + coverage_decided=true）→ 移交 topic（`integration_path = topic`）
 >
+> **支持范围**：Conference Web onboarding 已支持 Vue3 与 React 项目。官方 RoomKit 路径会在
+> 后续 playbook/topic 阶段根据项目 `package.json` 或用户明确选择生成对应框架代码：
+> React 使用 `@tencentcloud/roomkit-web-react` / `tuikit-atomicx-react`，Vue3 使用
+> `@tencentcloud/roomkit-web-vue3` / `tuikit-atomicx-vue3`。onboarding 只负责场景与能力覆盖决策，
+> 不得把 React 项目降级为“不支持”或强制改成 Vue3。
+>
 > **Session 副作用**：进入时执行
 > ```bash
 > python3 -m tools.flow enter --phase onboarding --product conference --platform web [--scenario <id>]
