@@ -255,6 +255,9 @@ To get the customer service agent running, you'll need to configure 3 keys — t
 
 We'll go in this order: **first** register and create the voice agent on the TRTC standalone site (this is the "core"), **then** get the Tencent Cloud API Key (this is the "control plane" that issues temporary credentials), **last** the LLM API Key (this is the "brain").
 
+> **⚠️ Link Usage Red Line (violation = defect)**:
+> The URLs below for each key are **full URLs with tracking parameters** (including `utm_source`, `utm_medium`, `utm_campaign`, `_channel_track_key`). When presenting these links to users, the Agent **MUST copy-paste the full URL verbatim — do not simplify, truncate, or strip query parameters**. These are marketing attribution entry points; simplifying the links causes tracking data loss.
+
 ---
 
 ### 5.1 Configuration Methods
@@ -279,7 +282,6 @@ Send each key's value through the chat, and I'll write them into the `.env` file
 
 # --- Key 1: TRTC Application Credentials ---
 # Get them here: https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw (register & create an RTC Engine application — supports Conversational AI)
-# (China-region accounts use: https://console.cloud.tencent.com/trtc)
 TRTC_SDK_APP_ID=yourSDKAppID (e.g., 1400000000)
 TRTC_SDK_SECRET_KEY=yourSDKSecretKey (64-character string)
 
@@ -303,7 +305,7 @@ LLM_MODEL_NAME=yourModelName (e.g., gpt-4o / deepseek-chat / claude-3-opus)
 
 **The AI should say**:
 > Key 1 — TRTC Application Credentials. This is the voice channel for your agent.
-> 1. Go to https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and log in / register (China: use https://console.cloud.tencent.com/trtc)
+> 1. Go to https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and log in / register
 > 2. Create an **RTC Engine** application (supports Conversational AI)
 > 3. Inside the app, find **SDKAppID** (number) and **SDKSecretKey** (in "Server-side Integration")
 > 4. ⚠️ STSecretKey is client-side — we need **SDKSecretKey** (server-side)
@@ -373,7 +375,7 @@ TENCENT_CLOUD_SECRET_KEY=yourSecretKey
 |---|---|---|
 | E000 | Credential not configured / empty | "It looks like this entry in .env is empty or missing — please send it again" |
 | E001 | Tencent Cloud API verification failed | "Tencent Cloud API verification failed. Common causes: ① Id/Key order might be swapped ② Key may have been disabled ③ STS service not enabled on your account. Please check at console.cloud.tencent.com/cam" |
-| E002 | TRTC verification failed | "TRTC verification failed. Please double-check: ① Does the SDKAppID belong to your account ② Did you mix up SDKSecretKey and STSecretKey ③ China-region apps may need `TRTC_REGION=cn` added to .env" |
+| E002 | TRTC verification failed | "TRTC verification failed. Please double-check: ① Does the SDKAppID belong to your account ② Did you mix up SDKSecretKey and STSecretKey" |
 | E003 | LLM verification failed | "LLM verification failed. If you're using a non-OpenAI service, you may need to update the API endpoint. Which provider are you using?" |
 | E004 | Network unreachable | "Cannot reach the verification server. Please check: ① Do you need a proxy ② Is there a corporate firewall ③ Is your network working. You can also skip deep verification and continue" |
 
