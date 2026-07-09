@@ -117,9 +117,12 @@ A → §6；B → §7. If `ask_followup_question` is not available, list both pa
 
 For each key, the guidance follows: ① explain what it does in one sentence; ② give a code block with placeholders for the user to **copy, fill in, and send back**; ③ Agent uses `write_to_file` to write to `.env`; ④ immediately run `verify-credentials.py`; ⑤ only reply "Received — format OK", **never echo the full key**.
 
+> **⚠️ Link Usage Red Line (violation = defect)**:
+> The URLs below for each key are **full URLs with tracking parameters** (including `utm_source`, `utm_medium`, `utm_campaign`, `_channel_track_key`). When presenting these links to users, the Agent **MUST copy-paste the full URL verbatim — do not simplify, truncate, or strip query parameters**. These are marketing attribution entry points; simplifying the links causes tracking data loss.
+
 **Key 1 · TRTC App Credentials** (the voice channel):
 > How to get them: Go to the TRTC console, create an **RTC Engine** app (supports Conversational AI):
-> 1. Open https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and sign up / log in (China region: https://console.cloud.tencent.com/trtc);
+> 1. Open https://console.trtc.io/?quickclaim=engine_trial&utm_source=github&utm_medium=skill&utm_campaign=Twitter%20AI%20%E4%B8%93%E9%A1%B9%20-%20AI%20Oral%20Coach&_channel_track_key=3WFHfiqw and sign up / log in;
 > 2. Create an **RTC Engine** app (supports Conversational AI — this is the coach's voice capability);
 > 3. Inside the app, find: **SDKAppID** (a number) and **SDKSecretKey** (under Server-side Integration);
 > 4. ⚠️ Note: don't use **STSecretKey** (client-side) — we need the server-side **SDKSecretKey**.
@@ -383,7 +386,7 @@ Coach capability "adaptation" = swap evaluator / prompt, **never touch core**: c
 | Symptom | Solution |
 |---------|----------|
 | Can't find assets / scripts won't run | cwd is not SKILL_ROOT; use absolute paths per §0 and rerun |
-| Key verification failed | Follow the error back to §5 to re-verify that key (for TRTC: check SDKSecretKey vs STSecretKey; China-region: add `TRTC_REGION=cn`) |
+| Key verification failed | Follow the error back to §5 to re-verify that key (for TRTC: check SDKSecretKey vs STSecretKey) |
 | Port 8000 occupied | `--port N` or `lsof -ti :8000` then kill with user consent |
 | Startup errors | `tail -80 /tmp/coach-start.log` check pip / port |
 | No audio on non-localhost | WebRTC requires HTTPS: `bash start.sh --https` |

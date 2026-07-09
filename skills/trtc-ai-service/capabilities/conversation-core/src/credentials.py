@@ -32,7 +32,7 @@ class TrtcCredential:
     SDKAppID and SDKSecretKey are used to generate UserSig and call ConversationAI.
     region determines whether to call the international or China endpoint:
       - "intl" → Application registered at https://console.trtc.io (default)
-      - "cn"   → Application registered at https://console.cloud.tencent.com/trtc
+      - "cn"   → Application registered at the China-region TRTC console
     """
 
     sdk_app_id: int
